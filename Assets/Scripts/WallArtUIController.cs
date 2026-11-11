@@ -29,12 +29,6 @@ public class WallArtUIController : MonoBehaviour
     public Button sizeA3Button;
     public Button sizeA2Button;
 
-    [Header("Ribbon Layout & Sizing")]
-    public float buttonWidth = 140f;
-    public float buttonHeight = 140f;
-    public float buttonSpacing = 12f;
-    public float buttonsYPosition = 300f;
-
     private bool wasSelectedLastFrame = false;
     private float lastArtClickTime = 0f;
 
@@ -122,8 +116,7 @@ public class WallArtUIController : MonoBehaviour
             framePlaceholderPanel.SetActive(false);
         }
 
-        // Apply uniform button sizes and set initial button layout (unselected mode)
-        ApplyButtonDimensions();
+        // Set initial button active states (unselected mode)
         UpdateContextualButtons(false);
     }
 
@@ -152,56 +145,12 @@ public class WallArtUIController : MonoBehaviour
         }
     }
 
-    public void ApplyButtonDimensions()
-    {
-        Vector2 size = new Vector2(buttonWidth, buttonHeight);
-        if (artworkNavButton != null) artworkNavButton.GetComponent<RectTransform>().sizeDelta = size;
-        if (frameNavButton != null) frameNavButton.GetComponent<RectTransform>().sizeDelta = size;
-        if (sizeNavButton != null) sizeNavButton.GetComponent<RectTransform>().sizeDelta = size;
-        if (trashNavButton != null) trashNavButton.GetComponent<RectTransform>().sizeDelta = size;
-        if (rotateNavButton != null) rotateNavButton.GetComponent<RectTransform>().sizeDelta = size;
-    }
-
     private void UpdateContextualButtons(bool hasSelection)
     {
-        ApplyButtonDimensions();
-
+        // Only toggle contextual buttons visibility based on selection; positions/sizes are managed by the user in the Unity Editor
         if (sizeNavButton != null) sizeNavButton.gameObject.SetActive(hasSelection);
         if (trashNavButton != null) trashNavButton.gameObject.SetActive(hasSelection);
         if (rotateNavButton != null) rotateNavButton.SetActive(hasSelection);
-
-        float step = buttonWidth + buttonSpacing;
-
-        // Dynamically adjust positions for a centered and balanced bottom bar
-        if (artworkNavButton != null && frameNavButton != null)
-        {
-            RectTransform artRect = artworkNavButton.GetComponent<RectTransform>();
-            RectTransform frameRect = frameNavButton.GetComponent<RectTransform>();
-
-            if (hasSelection)
-            {
-                // 5-button balanced tool ribbon right next to each other
-                // Order: [ Rotate ] [ Art ] [ Frame ] [ Size ] [ Trash ]
-                if (rotateNavButton != null)
-                    rotateNavButton.GetComponent<RectTransform>().anchoredPosition = new Vector2(-2f * step, buttonsYPosition);
-
-                artRect.anchoredPosition = new Vector2(-1f * step, buttonsYPosition);
-                frameRect.anchoredPosition = new Vector2(0f, buttonsYPosition);
-
-                if (sizeNavButton != null)
-                    sizeNavButton.GetComponent<RectTransform>().anchoredPosition = new Vector2(1f * step, buttonsYPosition);
-
-                if (trashNavButton != null)
-                    trashNavButton.GetComponent<RectTransform>().anchoredPosition = new Vector2(2f * step, buttonsYPosition);
-            }
-            else
-            {
-                // 2-button centered layout right next to each other
-                // Order: [ Art ] [ Frame ]
-                artRect.anchoredPosition = new Vector2(-step * 0.5f, buttonsYPosition);
-                frameRect.anchoredPosition = new Vector2(step * 0.5f, buttonsYPosition);
-            }
-        }
     }
 
     public void OnArtworkNavClicked()
