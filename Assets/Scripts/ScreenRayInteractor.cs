@@ -117,12 +117,18 @@ public class ScreenRayInteractor : Singleton<ScreenRayInteractor>
         if (arObjects.Contains(objectName)) {
             return;
         }
-        arObjects.Add(objectName);
+        
         GameObject currentHitPlane = null;
         Vector3? currentHitPosition = null;
         (currentHitPlane, currentHitPosition) = AssignmentScript.Instance.RaycastDetectionForARPlane(screenPosition);
+        
+        // Don't place anything unless a valid wall was detected
+        if (currentHitPlane == null || !currentHitPosition.HasValue)
+            return;
+
         GameObject generatedARObject = Instantiate(currentChosenPrefab, (Vector3)currentHitPosition, Quaternion.identity);
         AssignmentScript.Instance.GeometricRegistration(generatedARObject, (Vector3)currentHitPosition, currentHitPlane);
+        arObjects.Add(objectName);
      }
 
     public bool PerformScreenRayCast(Vector2 screenPosition) {

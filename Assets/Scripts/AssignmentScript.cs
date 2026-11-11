@@ -3,6 +3,8 @@ using TMPro;
 using UnityEngine;
 using Touch = UnityEngine.InputSystem.EnhancedTouch.Touch;
 using TouchPhase = UnityEngine.InputSystem.TouchPhase;
+using UnityEngine.XR.ARFoundation;
+using UnityEngine.XR.ARSubsystems;
 
 public class AssignmentScript : Singleton<AssignmentScript> {
 
@@ -41,16 +43,23 @@ public class AssignmentScript : Singleton<AssignmentScript> {
         Vector3? closestHitPoint = null;
         float closestDistance = Mathf.Infinity;
 
+        
         foreach (RaycastHit hit in hits)
         {
-            if (hit.collider.gameObject.CompareTag("ARPlane") &&
-                hit.distance < closestDistance)
+            ARPlane plane = hit.collider.GetComponentInParent<ARPlane>();
+
+            // Only accept detected vertical AR planes
+            if (plane == null || plane.alignment != PlaneAlignment.Vertical)
+                continue;
+
+            if (hit.distance < closestDistance)
             {
                 closestDistance = hit.distance;
-                closestARPlane = hit.collider.gameObject;
+                closestARPlane = plane.gameObject;
                 closestHitPoint = hit.point;
             }
         }
+
 
         return (closestARPlane, closestHitPoint);
     }
