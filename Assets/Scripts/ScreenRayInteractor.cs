@@ -76,7 +76,10 @@ public class ScreenRayInteractor : Singleton<ScreenRayInteractor>
     public void OnPrimaryTouchBeganWhenSelected() {
         Ray primaryTouchRay = GetRayFromScreenPosition(TouchScreenInputManager.Instance.primaryTouchPosition);
         RaycastHit hit;
-        Physics.Raycast(primaryTouchRay, out hit);
+        // Tapping empty space hits nothing; bail out instead of passing a null collider on
+        if (!Physics.Raycast(primaryTouchRay, out hit) || hit.collider == null) {
+            return;
+        }
         ARInteractable interactable = FindInteractableRecursivelyUp(hit.collider);
         if (interactable == currentSelectedObject) {
             GameObject currentHitPlane = null;
