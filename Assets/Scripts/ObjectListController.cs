@@ -22,6 +22,7 @@ public class ObjectListController : MonoBehaviour
     public int currentSelectedIndex = -1;
     private bool isDrawerOpen = false;
     public bool IsDrawerOpen => isDrawerOpen;
+    private float lastToggleTime = 0f;
 
 
     // Start is called before the first frame update
@@ -99,6 +100,9 @@ public class ObjectListController : MonoBehaviour
     }
 
     public void ToggleItemList() {
+        if (Time.unscaledTime - lastToggleTime < 0.25f) return;
+        lastToggleTime = Time.unscaledTime;
+
         if (!isDrawerOpen) {
             EnableItemList();
         } else {

@@ -29,10 +29,14 @@ public class WallArtUIController : MonoBehaviour
     public Button sizeA3Button;
     public Button sizeA2Button;
 
-    [Header("Y Position of Bottom Ribbon")]
+    [Header("Ribbon Layout & Sizing")]
+    public float buttonWidth = 140f;
+    public float buttonHeight = 140f;
+    public float buttonSpacing = 12f;
     public float buttonsYPosition = 300f;
 
     private bool wasSelectedLastFrame = false;
+    private float lastArtClickTime = 0f;
 
     private void OnEnable()
     {
@@ -59,37 +63,51 @@ public class WallArtUIController : MonoBehaviour
     {
         if (artworkNavButton != null)
         {
+            artworkNavButton.onClick.RemoveAllListeners();
             artworkNavButton.onClick.AddListener(OnArtworkNavClicked);
+
+            // Ensure the Art button displays "Art"
+            TMPro.TextMeshProUGUI artText = artworkNavButton.GetComponentInChildren<TMPro.TextMeshProUGUI>();
+            if (artText != null)
+            {
+                artText.text = "Art";
+            }
         }
 
         if (frameNavButton != null)
         {
+            frameNavButton.onClick.RemoveAllListeners();
             frameNavButton.onClick.AddListener(OnFrameNavClicked);
         }
 
         if (sizeNavButton != null)
         {
+            sizeNavButton.onClick.RemoveAllListeners();
             sizeNavButton.onClick.AddListener(OnSizeNavClicked);
         }
 
         if (trashNavButton != null)
         {
+            trashNavButton.onClick.RemoveAllListeners();
             trashNavButton.onClick.AddListener(OnTrashNavClicked);
         }
 
         // Setup Size Preset Buttons
         if (sizeA4Button != null)
         {
+            sizeA4Button.onClick.RemoveAllListeners();
             sizeA4Button.onClick.AddListener(() => OnSizePresetClicked(ArtworkSizePreset.A4));
         }
 
         if (sizeA3Button != null)
         {
+            sizeA3Button.onClick.RemoveAllListeners();
             sizeA3Button.onClick.AddListener(() => OnSizePresetClicked(ArtworkSizePreset.A3));
         }
 
         if (sizeA2Button != null)
         {
+            sizeA2Button.onClick.RemoveAllListeners();
             sizeA2Button.onClick.AddListener(() => OnSizePresetClicked(ArtworkSizePreset.A2));
         }
 
@@ -104,7 +122,8 @@ public class WallArtUIController : MonoBehaviour
             framePlaceholderPanel.SetActive(false);
         }
 
-        // Set initial button layout (unselected mode)
+        // Apply uniform button sizes and set initial button layout (unselected mode)
+        ApplyButtonDimensions();
         UpdateContextualButtons(false);
     }
 
@@ -133,11 +152,25 @@ public class WallArtUIController : MonoBehaviour
         }
     }
 
+    public void ApplyButtonDimensions()
+    {
+        Vector2 size = new Vector2(buttonWidth, buttonHeight);
+        if (artworkNavButton != null) artworkNavButton.GetComponent<RectTransform>().sizeDelta = size;
+        if (frameNavButton != null) frameNavButton.GetComponent<RectTransform>().sizeDelta = size;
+        if (sizeNavButton != null) sizeNavButton.GetComponent<RectTransform>().sizeDelta = size;
+        if (trashNavButton != null) trashNavButton.GetComponent<RectTransform>().sizeDelta = size;
+        if (rotateNavButton != null) rotateNavButton.GetComponent<RectTransform>().sizeDelta = size;
+    }
+
     private void UpdateContextualButtons(bool hasSelection)
     {
+        ApplyButtonDimensions();
+
         if (sizeNavButton != null) sizeNavButton.gameObject.SetActive(hasSelection);
         if (trashNavButton != null) trashNavButton.gameObject.SetActive(hasSelection);
         if (rotateNavButton != null) rotateNavButton.SetActive(hasSelection);
+
+        float step = buttonWidth + buttonSpacing;
 
         // Dynamically adjust positions for a centered and balanced bottom bar
         if (artworkNavButton != null && frameNavButton != null)
@@ -147,30 +180,35 @@ public class WallArtUIController : MonoBehaviour
 
             if (hasSelection)
             {
-                // 5-button balanced tool ribbon across the bottom
+                // 5-button balanced tool ribbon right next to each other
+                // Order: [ Rotate ] [ Art ] [ Frame ] [ Size ] [ Trash ]
                 if (rotateNavButton != null)
-                    rotateNavButton.GetComponent<RectTransform>().anchoredPosition = new Vector2(-360f, buttonsYPosition);
+                    rotateNavButton.GetComponent<RectTransform>().anchoredPosition = new Vector2(-2f * step, buttonsYPosition);
 
-                artRect.anchoredPosition = new Vector2(-180f, buttonsYPosition);
+                artRect.anchoredPosition = new Vector2(-1f * step, buttonsYPosition);
                 frameRect.anchoredPosition = new Vector2(0f, buttonsYPosition);
 
                 if (sizeNavButton != null)
-                    sizeNavButton.GetComponent<RectTransform>().anchoredPosition = new Vector2(180f, buttonsYPosition);
+                    sizeNavButton.GetComponent<RectTransform>().anchoredPosition = new Vector2(1f * step, buttonsYPosition);
 
                 if (trashNavButton != null)
-                    trashNavButton.GetComponent<RectTransform>().anchoredPosition = new Vector2(360f, buttonsYPosition);
+                    trashNavButton.GetComponent<RectTransform>().anchoredPosition = new Vector2(2f * step, buttonsYPosition);
             }
             else
             {
-                // 2-button centered layout when nothing is selected
-                artRect.anchoredPosition = new Vector2(-130f, buttonsYPosition);
-                frameRect.anchoredPosition = new Vector2(130f, buttonsYPosition);
+                // 2-button centered layout right next to each other
+                // Order: [ Art ] [ Frame ]
+                artRect.anchoredPosition = new Vector2(-step * 0.5f, buttonsYPosition);
+                frameRect.anchoredPosition = new Vector2(step * 0.5f, buttonsYPosition);
             }
         }
     }
 
     public void OnArtworkNavClicked()
     {
+        if (Time.unscaledTime - lastArtClickTime < 0.25f) return;
+        lastArtClickTime = Time.unscaledTime;
+
         if (sizePresetsPanel != null) sizePresetsPanel.SetActive(false);
         if (framePlaceholderPanel != null) framePlaceholderPanel.SetActive(false);
 
