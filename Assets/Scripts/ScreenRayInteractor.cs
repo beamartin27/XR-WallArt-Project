@@ -44,7 +44,6 @@ public class ScreenRayInteractor : Singleton<ScreenRayInteractor>
             currentSelectedObject.SetSelfEmission(false);
             currentSelectedObject = null;
         }
-        CancelPlacementPreview();
     }
 
     public void CancelPlacementPreview() {
@@ -220,48 +219,54 @@ public class ScreenRayInteractor : Singleton<ScreenRayInteractor>
             previewInstance.SetActive(true);
             previewPlane = hitPlane;
             previewHitPosition = hitPosition.Value;
-        } else {
-            // No wall plane under finger
-            if (previewInstance != null) {
-                previewInstance.SetActive(false);
-            }
         }
     }
 
     private void SolidifyPlacementPreview() {
-        if (previewInstance != null && isPreviewActive && previewHitPosition.HasValue && previewPlane != null && previewInstance.activeSelf) {
-            // Re-enable colliders
-            foreach (var col in previewInstance.GetComponentsInChildren<Collider>()) {
-                col.enabled = true;
-            }
+        if (previewInstance != null && previewHitPosition.HasValue && previewPlane != null) {
+            GameObject finalObject = previewInstance;
+            Vector3 finalPos = previewHitPosition.Value;
+            GameObject finalPlane = previewPlane;
 
-            ARInteractable interactable = previewInstance.GetComponent<ARInteractable>();
-            if (interactable != null) {
-                string baseName = currentChosenPrefab.GetComponent<ARInteractable>() != null 
-                    ? currentChosenPrefab.GetComponent<ARInteractable>().objectName 
-                    : "Artwork";
-                string instanceName = baseName + "_" + previewInstance.GetInstanceID();
-                interactable.objectName = instanceName;
-                interactable.currentAnchorPointInWorld = previewHitPosition.Value;
-                interactable.currentNormalDirectionInWorld = previewPlane.transform.up.normalized;
-                interactable.currentARPlane = previewPlane;
-                arObjects.Add(instanceName);
-                previewInstance.name = instanceName;
-
-                // Select the newly placed artwork
-                SetSelection(interactable);
-            }
-
-            // Tactile bounce pop animation on solidification
-            StartCoroutine(SolidifyPopAnimation(previewInstance.transform));
-
-            // Reset preview references
+            // Null out preview references FIRST so no cleanup routine or selection change can touch finalObject
             previewInstance = null;
             isPreviewActive = false;
             previewPlane = null;
             previewHitPosition = null;
             currentChosenPrefab = null;
             isSpawnerActivated = false;
+
+            finalObject.SetActive(true);
+
+            // Re-enable colliders so the placed artwork can be selected and manipulated
+            foreach (var col in finalObject.GetComponentsInChildren<Collider>()) {
+                col.enabled = true;
+            }
+
+            // Firmly lock geometric registration at the release point on the wall
+            AssignmentScript.Instance.GeometricRegistration(finalObject, finalPos, finalPlane);
+
+            ARInteractable interactable = finalObject.GetComponent<ARInteractable>();
+            if (interactable != null) {
+                string baseName = "Artwork";
+                ArtworkProperties props = finalObject.GetComponent<ArtworkProperties>();
+                if (props != null && !string.IsNullOrEmpty(props.artworkTitle)) {
+                    baseName = props.artworkTitle;
+                }
+                string instanceName = baseName + "_" + finalObject.GetInstanceID();
+                interactable.objectName = instanceName;
+                interactable.currentAnchorPointInWorld = finalPos;
+                interactable.currentNormalDirectionInWorld = finalPlane.transform.up.normalized;
+                interactable.currentARPlane = finalPlane;
+                arObjects.Add(instanceName);
+                finalObject.name = instanceName;
+
+                // Select the newly placed artwork (turns on emission outline)
+                SetSelection(interactable);
+            }
+
+            // Tactile bounce pop animation on solidification
+            StartCoroutine(SolidifyPopAnimation(finalObject.transform));
 
             // Clear the selection highlight on the Art button in the drawer!
             if (ObjectListController.Instance != null) {
