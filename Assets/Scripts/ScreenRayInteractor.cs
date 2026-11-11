@@ -156,15 +156,32 @@ public class ScreenRayInteractor : Singleton<ScreenRayInteractor>
                 GameObject draggingCurrentHitPlane = null;
                 Vector3? draggingCurrentWorldPosition = null;
                 (draggingCurrentHitPlane, draggingCurrentWorldPosition) = AssignmentScript.Instance.RaycastDetectionForARPlane(dragScreenPosition);
-                if (draggingCurrentHitPlane != null) {
+                
+                if (draggingCurrentHitPlane != null &&
+                    draggingCurrentWorldPosition.HasValue &&
+                    draggingStartWorldPosition.HasValue)
+                {
+                    // Offset between the object's anchor and initial touch point
+                    Vector3 grabOffset =
+                        objectStartPosition - draggingStartWorldPosition.Value;
 
-                    Vector3 draggingDelta = (Vector3)draggingCurrentWorldPosition - (Vector3)draggingStartWorldPosition;
-                    Vector3 currentAnchorPointInWorld = objectStartPosition + draggingDelta;
-                    
-                    Vector3 currentPlaneUpDirection = draggingCurrentHitPlane.transform.up;
-                    
-                    AssignmentScript.Instance.GeometricRegistration(currentSelectedObject.gameObject, currentAnchorPointInWorld, draggingCurrentHitPlane);
+                    // Normal of the wall currently detected
+                    Vector3 planeNormal =
+                        draggingCurrentHitPlane.transform.up.normalized;
 
+                    // Keep the offset parallel to the new wall
+                    Vector3 offsetAlongPlane =
+                        Vector3.ProjectOnPlane(grabOffset, planeNormal);
+
+                    // Place the object's anchor on the detected wall
+                    Vector3 targetAnchor =
+                        draggingCurrentWorldPosition.Value + offsetAlongPlane;
+
+                    AssignmentScript.Instance.GeometricRegistration(
+                        currentSelectedObject.gameObject,
+                        targetAnchor,
+                        draggingCurrentHitPlane
+                    );
                 }
             }
         } else {
