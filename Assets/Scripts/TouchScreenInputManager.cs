@@ -39,7 +39,8 @@ public class TouchScreenInputManager : Singleton<TouchScreenInputManager>
     private float lastMouseWheelTime = 0f;
 #endif
 
-    void OnEnable() {
+    void OnEnable()
+    {
 #if UNITY_EDITOR
         mouse = Mouse.current;
         keyboard = Keyboard.current;
@@ -50,7 +51,7 @@ public class TouchScreenInputManager : Singleton<TouchScreenInputManager>
     // Start is called before the first frame update
     void Start()
     {
-       
+
     }
 
     // Update is called once per frame
@@ -58,24 +59,20 @@ public class TouchScreenInputManager : Singleton<TouchScreenInputManager>
     {
         touchCount = Touch.activeTouches.Count;
 #if UNITY_EDITOR
-        if (EventSystem.current.IsPointerOverGameObject()) {
-            return;
-        }
-        if (mouse.leftButton.isPressed && isDoingDrag) {
+        if (!mouse.leftButton.isPressed) {
             dragPosition = mouse.position.ReadValue();
-
-        } else if (mouse.leftButton.isPressed && !isDoingDrag) {
+            isDoingDrag = false;
+        } else if (isDoingDrag) {
+            dragPosition = mouse.position.ReadValue();
+        } else if (EventSystem.current == null || !EventSystem.current.IsPointerOverGameObject()) {
             primaryTouchPosition = mouse.position.ReadValue();
-            if (ScreenRayInteractor.Instance.currentSelectedObject != null) {
+            dragPosition = mouse.position.ReadValue();
+            isDoingDrag = true;
+            if (ScreenRayInteractor.Instance != null && ScreenRayInteractor.Instance.currentSelectedObject != null) {
                 OnPrimaryTouchBeganWhenSelected.Invoke();
             } else {
                 OnPrimaryTouchBegan.Invoke();
             }
-            dragPosition = mouse.position.ReadValue();
-            isDoingDrag = true;
-        } else if (!mouse.leftButton.isPressed) {
-            dragPosition = mouse.position.ReadValue();
-            isDoingDrag = false;
         }
 
         if (ScreenRayInteractor.Instance.currentSelectedObject != null) {
@@ -143,36 +140,78 @@ public class TouchScreenInputManager : Singleton<TouchScreenInputManager>
         }
 
 #else
-        if (touchCount > 0) {
-            if ((touchCount == 1) && (Touch.activeTouches[0].phase == TouchPhase.Began)) {
-                primaryTouchPosition = Touch.activeTouches[0].screenPosition;
-                if (ScreenRayInteractor.Instance.currentSelectedObject != null) {
-                    OnPrimaryTouchBeganWhenSelected.Invoke();
+        if (touchCount == 1)
+        {
+            Touch touch = Touch.activeTouches[0];
+            if (touch.phase == TouchPhase.Began)
+            {
+                if (EventSystem.current == null || !EventSystem.current.IsPointerOverGameObject())
+                {
+                    primaryTouchPosition = touch.screenPosition;
+                    dragPosition = touch.screenPosition;
                     isDoingDrag = true;
-                } else {
-                    OnPrimaryTouchBegan.Invoke();
-                }
-            } else if ((touchCount == 1) && (Touch.activeTouches[0].phase == TouchPhase.Moved || Touch.activeTouches[0].phase == TouchPhase.Stationary)) {
-                dragPosition = Touch.activeTouches[0].screenPosition;
-                isDoingDrag = true;
-            } else if ((touchCount == 1) && (Touch.activeTouches[0].phase == TouchPhase.Ended)) {
-                dragPosition = Touch.activeTouches[0].screenPosition;
-                isDoingDrag = false;
-            } else if (touchCount > 1) {
-                if (ScreenRayInteractor.Instance.currentSelectedObject != null) {
-                    HandleMultiTouchGesture();
+                    if (ScreenRayInteractor.Instance != null && ScreenRayInteractor.Instance.currentSelectedObject != null)
+                    {
+                        OnPrimaryTouchBeganWhenSelected.Invoke();
+                    }
+                    else
+                    {
+                        OnPrimaryTouchBegan.Invoke();
+                    }
                 }
             }
+            else if (touch.phase == TouchPhase.Moved || touch.phase == TouchPhase.Stationary)
+            {
+                if (isDoingDrag)
+                {
+                    dragPosition = touch.screenPosition;
+                }
+                else if (EventSystem.current == null || !EventSystem.current.IsPointerOverGameObject())
+                {
+                    // Finger was dragged off UI onto the scene
+                    primaryTouchPosition = touch.screenPosition;
+                    dragPosition = touch.screenPosition;
+                    isDoingDrag = true;
+                    if (ScreenRayInteractor.Instance != null && ScreenRayInteractor.Instance.currentSelectedObject != null)
+                    {
+                        OnPrimaryTouchBeganWhenSelected.Invoke();
+                    }
+                    else
+                    {
+                        OnPrimaryTouchBegan.Invoke();
+                    }
+                }
+            }
+            else if (touch.phase == TouchPhase.Ended || touch.phase == TouchPhase.Canceled)
+            {
+                dragPosition = touch.screenPosition;
+                isDoingDrag = false;
+            }
+        }
+        else if (touchCount > 1)
+        {
+            isDoingDrag = false;
+            if (ScreenRayInteractor.Instance != null && ScreenRayInteractor.Instance.currentSelectedObject != null)
+            {
+                HandleMultiTouchGesture();
+            }
+        }
+        else
+        {
+            isDoingDrag = false;
         }
 
         // Snap to nearest A-size preset (A4, A3, A2) when two-finger pinch ends
-        if (isPinchScaling && touchCount < 2) {
+        if (isPinchScaling && touchCount < 2)
+        {
             isPinchScaling = false;
-            if (ArtworkSizeManager.Instance != null && ScreenRayInteractor.Instance != null && ScreenRayInteractor.Instance.currentSelectedObject != null) {
+            if (ArtworkSizeManager.Instance != null && ScreenRayInteractor.Instance != null && ScreenRayInteractor.Instance.currentSelectedObject != null)
+            {
                 ArtworkSizeManager.Instance.SnapToNearestPreset(ScreenRayInteractor.Instance.currentSelectedObject.gameObject);
             }
         }
-        if (touchCount < 2) {
+        if (touchCount < 2)
+        {
             isDoingRotate = false;
         }
 #endif
@@ -237,7 +276,7 @@ public class TouchScreenInputManager : Singleton<TouchScreenInputManager>
     }
 
 
-    }
-
-
 }
+
+
+

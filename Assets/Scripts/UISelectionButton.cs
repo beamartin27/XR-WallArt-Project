@@ -19,22 +19,32 @@ public class UISelectionButton : MonoBehaviour
 
     public void SetTargetPrefab(int i)
     {
+        int index = (i >= 0) ? i : transform.GetSiblingIndex();
+
         if (ScreenRayInteractor.Instance != null)
         {
             if (ScreenRayInteractor.Instance.currentSelectedObject != null)
             {
                 // Replace currently selected artwork preserving its exact size, transform & registration
                 ScreenRayInteractor.Instance.ReplaceSelectedArtwork(targetPrefab);
+                if (objectListController != null)
+                {
+                    objectListController.ClearSelectionHighlight();
+                }
             }
             else
             {
-                // Arm spawner to place new artwork when tapping on a wall
+                // Arm spawner to place new artwork when dragging or tapping on a wall
                 ScreenRayInteractor.Instance.SetTargetPrefab(targetPrefab);
+                if (objectListController != null)
+                {
+                    objectListController.currentSelectedIndex = index;
+                }
             }
         }
-        if (objectListController != null)
+        else if (objectListController != null)
         {
-            objectListController.currentSelectedIndex = i;
+            objectListController.currentSelectedIndex = index;
         }
     }
 }

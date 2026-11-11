@@ -5,6 +5,8 @@ using UnityEngine.UI;
 
 public class ObjectListController : MonoBehaviour
 {
+    public static ObjectListController Instance { get; private set; }
+
     public RectTransform itemList;
 
     public RectTransform itemListController;
@@ -24,6 +26,10 @@ public class ObjectListController : MonoBehaviour
     public bool IsDrawerOpen => isDrawerOpen;
     private float lastToggleTime = 0f;
 
+    void Awake()
+    {
+        Instance = this;
+    }
 
     // Start is called before the first frame update
     void Start()
@@ -38,21 +44,46 @@ public class ObjectListController : MonoBehaviour
         RegisterAllButtons();
     }
 
-
-    void RegisterAllButtons() {
+    public void RegisterAllButtons() {
         buttons.Clear();
         for (int i = 0; i < buttonsContent.transform.childCount; i++) {
+            int buttonIndex = i;
             GameObject button = buttonsContent.transform.GetChild(i).gameObject;
             UISelectionButton selectBtn = button.GetComponent<UISelectionButton>();
             if (selectBtn != null) {
                 selectBtn.objectListController = this;
             }
+
+            Button btn = button.GetComponent<Button>();
+            if (btn != null) {
+                btn.onClick.RemoveAllListeners();
+                btn.onClick.AddListener(() => {
+                    if (selectBtn != null) {
+                        selectBtn.SetTargetPrefab(buttonIndex);
+                    }
+                });
+            }
+
             buttons.Add(button);
         }
         if (buttons.Count > 0) {
             float buttonWidth = buttons[0].GetComponent<RectTransform>().rect.width;
             float contentWidth = buttonWidth * buttons.Count;
             buttonsContent.GetComponent<RectTransform>().sizeDelta = new Vector2(contentWidth, buttonsContent.GetComponent<RectTransform>().rect.height);
+        }
+    }
+
+    public void ClearSelectionHighlight() {
+        currentSelectedIndex = -1;
+        if (buttons != null) {
+            foreach (var button in buttons) {
+                if (button != null) {
+                    Image img = button.GetComponent<Image>();
+                    if (img != null) {
+                        img.color = Color.white;
+                    }
+                }
+            }
         }
     }
 
@@ -70,14 +101,23 @@ public class ObjectListController : MonoBehaviour
     // Update is called once per frame
     void Update()
     {
-        if (currentSelectedIndex != -1) {
-            foreach (var button in buttons) {
-                button.GetComponent<Image>().color = Color.white;
+        if (currentSelectedIndex >= 0 && currentSelectedIndex < buttons.Count) {
+            for (int i = 0; i < buttons.Count; i++) {
+                if (buttons[i] != null) {
+                    Image img = buttons[i].GetComponent<Image>();
+                    if (img != null) {
+                        img.color = (i == currentSelectedIndex) ? Color.green : Color.white;
+                    }
+                }
             }
-            buttons[currentSelectedIndex].GetComponent<Image>().color = Color.green;
         } else {
             foreach (var button in buttons) {
-                button.GetComponent<Image>().color = Color.white;
+                if (button != null) {
+                    Image img = button.GetComponent<Image>();
+                    if (img != null) {
+                        img.color = Color.white;
+                    }
+                }
             }
         }
     }
@@ -94,8 +134,9 @@ public class ObjectListController : MonoBehaviour
         isDrawerOpen = false;
         StopAllCoroutines();
         StartCoroutine(MoveItemList(itemListController.anchoredPosition.y, closedPosition, onComplete));
-        currentSelectedIndex = -1;
+        ClearSelectionHighlight();
         if (ScreenRayInteractor.Instance != null) {
+            ScreenRayInteractor.Instance.CancelPlacementPreview();
             ScreenRayInteractor.Instance.currentChosenPrefab = null;
             ScreenRayInteractor.Instance.isSpawnerActivated = false;
         }
