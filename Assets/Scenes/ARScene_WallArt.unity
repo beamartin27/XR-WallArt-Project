@@ -2733,6 +2733,7 @@ GameObject:
   - component: {fileID: 1075000276}
   - component: {fileID: 1075000275}
   - component: {fileID: 1075000277}
+  - component: {fileID: 1075000278}
   m_Layer: 0
   m_Name: Directional Light
   m_TagString: Untagged
@@ -4000,3 +4001,26 @@ SceneRoots:
   - {fileID: 720397975}
   - {fileID: 1532095223}
   - {fileID: 730154503}
+--- !u!114 &1075000278
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1075000274}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 6a767664fbdf4f469222bcda5b2214c0, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  cameraManager: {fileID: 0}
+  mainLight: {fileID: 0}
+  mode: 0
+  estimationEnabled: 1
+  intensityMultiplier: 1
+  minIntensity: 0.05
+  maxIntensity: 3
+  applyLightDirection: 1
+  applyAmbient: 1
+  smoothingSpeed: 4
+  debugText: {fileID: 0}

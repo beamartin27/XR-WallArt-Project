@@ -82,17 +82,30 @@ public class AssignmentScript : Singleton<AssignmentScript> {
         // Normal of the detected AR plane in world space
         Vector3 planeNormal = arPlane.transform.up.normalized;
 
-        // Convert the object's normal from local space to world space
-        Vector3 objectNormalWorld = arObject.transform.TransformDirection(objectNormal).normalized;
+        // Rotate the object so its normal matches the wall normal while keeping it upright.
+        // (FromToRotation alone leaves the roll around the normal undefined: when the two
+        // normals are nearly opposite it picks an arbitrary axis, so posters came out tilted.)
 
-        // Rotate the object so both plane normals align
-        Quaternion alignmentRotation =
-            Quaternion.FromToRotation(
-                objectNormalWorld,
-                planeNormal
-            );
+        // The object's own "up" direction, perpendicular to its normal (local space)
+        Vector3 objectUp = Vector3.ProjectOnPlane(Vector3.up, objectNormal);
+        if (objectUp.sqrMagnitude < 1e-6f)
+            objectUp = Vector3.ProjectOnPlane(Vector3.forward, objectNormal);
+        objectUp.Normalize();
 
-        arObject.transform.rotation = alignmentRotation * arObject.transform.rotation;
+        // Keep the object's current up direction (preserves rotation the user applied),
+        // flattened onto the wall. A freshly spawned object is upright, so it stays upright.
+        Vector3 currentUpWorld = arObject.transform.TransformDirection(objectUp);
+        Vector3 upOnPlane = Vector3.ProjectOnPlane(currentUpWorld, planeNormal);
+        if (upOnPlane.sqrMagnitude < 1e-4f)
+            upOnPlane = Vector3.ProjectOnPlane(Vector3.up, planeNormal);
+        if (upOnPlane.sqrMagnitude < 1e-4f)
+            upOnPlane = Vector3.ProjectOnPlane(Vector3.forward, planeNormal);
+        upOnPlane.Normalize();
+
+        // Map (objectNormal, objectUp) in object space onto (planeNormal, upOnPlane) in world space
+        Quaternion objectFrame = Quaternion.LookRotation(objectNormal, objectUp);
+        Quaternion worldFrame = Quaternion.LookRotation(planeNormal, upOnPlane);
+        arObject.transform.rotation = worldFrame * Quaternion.Inverse(objectFrame);
 
         // After rotating, find where the object's anchor currently is
         Vector3 anchorWorld = arObject.transform.TransformPoint(objectAnchor);
