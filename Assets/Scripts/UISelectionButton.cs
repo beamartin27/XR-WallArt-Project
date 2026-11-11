@@ -7,19 +7,34 @@ public class UISelectionButton : MonoBehaviour
     public GameObject targetPrefab;
     public ObjectListController objectListController;
 
-
-    public void SetTargetPrefab(int  i) {
-        ScreenRayInteractor.Instance.SetTargetPrefab(targetPrefab);
-        objectListController.currentSelectedIndex = i;
-    }
-    // Start is called before the first frame update
-    void Start()
+    /// <summary>
+    /// Convenient parameterless method for Unity UI Button OnClick.
+    /// Automatically infers the button's index from its sibling index in the container.
+    /// </summary>
+    public void SelectArtwork()
     {
+        int index = transform.GetSiblingIndex();
+        SetTargetPrefab(index);
     }
 
-    // Update is called once per frame
-    void Update()
+    public void SetTargetPrefab(int i)
     {
-        
+        if (ScreenRayInteractor.Instance != null)
+        {
+            if (ScreenRayInteractor.Instance.currentSelectedObject != null)
+            {
+                // Replace currently selected artwork preserving its exact size, transform & registration
+                ScreenRayInteractor.Instance.ReplaceSelectedArtwork(targetPrefab);
+            }
+            else
+            {
+                // Arm spawner to place new artwork when tapping on a wall
+                ScreenRayInteractor.Instance.SetTargetPrefab(targetPrefab);
+            }
+        }
+        if (objectListController != null)
+        {
+            objectListController.currentSelectedIndex = i;
+        }
     }
 }

@@ -54,6 +54,49 @@ public class ScreenRayInteractor : Singleton<ScreenRayInteractor>
             currentSelectedObject = null;
         }
     }
+
+    public void ReplaceSelectedArtwork(GameObject newPrefab) {
+        if (currentSelectedObject == null || newPrefab == null) return;
+
+        Transform oldTransform = currentSelectedObject.transform;
+        Vector3 pos = oldTransform.position;
+        Quaternion rot = oldTransform.rotation;
+        Vector3 scale = oldTransform.localScale;
+        GameObject plane = currentSelectedObject.currentARPlane;
+        Vector3 anchorPoint = currentSelectedObject.currentAnchorPointInWorld;
+        Vector3 normal = currentSelectedObject.currentNormalDirectionInWorld;
+        string oldName = currentSelectedObject.objectName;
+
+        ArtworkProperties oldProps = currentSelectedObject.GetComponent<ArtworkProperties>();
+        ArtworkSizePreset oldPreset = oldProps != null ? oldProps.currentPreset : ArtworkSizeManager.Instance.GetNearestPreset(scale.x);
+
+        arObjects.Remove(oldName);
+
+        // Turn off outline before destroying
+        currentSelectedObject.SetSelfEmission(false);
+        Destroy(currentSelectedObject.gameObject);
+
+        // Instantiate new artwork at the exact same position, rotation, and scale
+        GameObject newObj = Instantiate(newPrefab, pos, rot);
+        newObj.transform.localScale = scale;
+
+        ArtworkProperties newProps = newObj.GetComponent<ArtworkProperties>();
+        if (newProps != null) {
+            newProps.currentPreset = oldPreset;
+        }
+
+        ARInteractable newInteractable = newObj.GetComponent<ARInteractable>();
+        if (newInteractable != null) {
+            string baseName = newPrefab.GetComponent<ARInteractable>() != null ? newPrefab.GetComponent<ARInteractable>().objectName : "Artwork";
+            string instanceName = baseName + "_" + newObj.GetInstanceID();
+            newInteractable.objectName = instanceName;
+            newInteractable.currentAnchorPointInWorld = anchorPoint;
+            newInteractable.currentNormalDirectionInWorld = normal;
+            newInteractable.currentARPlane = plane;
+            arObjects.Add(instanceName);
+            SetSelection(newInteractable);
+        }
+    }
     void Start()
     {
 
@@ -74,25 +117,31 @@ public class ScreenRayInteractor : Singleton<ScreenRayInteractor>
     }
 
     public void OnPrimaryTouchBeganWhenSelected() {
+        if (EventSystem.current.IsPointerOverGameObject()) {
+            return;
+        }
         Ray primaryTouchRay = GetRayFromScreenPosition(TouchScreenInputManager.Instance.primaryTouchPosition);
         RaycastHit hit;
-        Physics.Raycast(primaryTouchRay, out hit);
-        ARInteractable interactable = FindInteractableRecursivelyUp(hit.collider);
-        if (interactable == currentSelectedObject) {
-            GameObject currentHitPlane = null;
-            Vector3? currentHitPosition = null;
-            (currentHitPlane, currentHitPosition) = AssignmentScript.Instance.RaycastDetectionForARPlane(TouchScreenInputManager.Instance.primaryTouchPosition);
-            if (currentHitPlane != null) {
-                draggingStartWorldPosition = currentHitPosition;
-                objectStartPosition = interactable.GetComponent<ARInteractable>().currentAnchorPointInWorld;
-                isDragging = true;
-                dragLockTimer = dragLockTime;
+        if (Physics.Raycast(primaryTouchRay, out hit)) {
+            ARInteractable interactable = FindInteractableRecursivelyUp(hit.collider);
+            if (interactable == currentSelectedObject) {
+                GameObject currentHitPlane = null;
+                Vector3? currentHitPosition = null;
+                (currentHitPlane, currentHitPosition) = AssignmentScript.Instance.RaycastDetectionForARPlane(TouchScreenInputManager.Instance.primaryTouchPosition);
+                if (currentHitPlane != null) {
+                    draggingStartWorldPosition = currentHitPosition;
+                    objectStartPosition = interactable.currentAnchorPointInWorld;
+                    isDragging = true;
+                    dragLockTimer = dragLockTime;
+                }
+            } else if (interactable != null) {
+                SetSelection(interactable);
+            } else {
+                ClearSelection();
             }
         } else {
-            if (interactable != null)
-                SetSelection(interactable);
+            ClearSelection();
         }
-
     }
 
     private Ray GetRayFromScreenPosition(Vector2 screenPosition) {
@@ -113,10 +162,6 @@ public class ScreenRayInteractor : Singleton<ScreenRayInteractor>
         if (currentChosenPrefab == null) {  
             return;
         }
-        string objectName = currentChosenPrefab.GetComponent<ARInteractable>().objectName;
-        if (arObjects.Contains(objectName)) {
-            return;
-        }
         
         GameObject currentHitPlane = null;
         Vector3? currentHitPosition = null;
@@ -128,7 +173,21 @@ public class ScreenRayInteractor : Singleton<ScreenRayInteractor>
 
         GameObject generatedARObject = Instantiate(currentChosenPrefab, (Vector3)currentHitPosition, Quaternion.identity);
         AssignmentScript.Instance.GeometricRegistration(generatedARObject, (Vector3)currentHitPosition, currentHitPlane);
-        arObjects.Add(objectName);
+        
+        ARInteractable generatedInteractable = generatedARObject.GetComponent<ARInteractable>();
+        if (generatedInteractable != null) {
+            string baseName = currentChosenPrefab.GetComponent<ARInteractable>() != null ? currentChosenPrefab.GetComponent<ARInteractable>().objectName : "Artwork";
+            string instanceName = baseName + "_" + generatedARObject.GetInstanceID();
+            generatedInteractable.objectName = instanceName;
+            arObjects.Add(instanceName);
+            SetSelection(generatedInteractable);
+
+            // Engage dragging immediately so touch-and-drag moves it smoothly across the wall
+            draggingStartWorldPosition = currentHitPosition;
+            objectStartPosition = generatedInteractable.currentAnchorPointInWorld;
+            isDragging = true;
+            dragLockTimer = 0f;
+        }
      }
 
     public bool PerformScreenRayCast(Vector2 screenPosition) {
@@ -213,7 +272,7 @@ public class ScreenRayInteractor : Singleton<ScreenRayInteractor>
                 if (!TouchScreenInputManager.Instance.isDoingDrag) {
                     isDragging = false;
                     dragLockTimer = 0.0f;
-                    ClearSelection();
+                    // Tapped the selected object: keep selection active
                 }
             }
         } 

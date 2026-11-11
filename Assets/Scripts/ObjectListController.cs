@@ -20,6 +20,8 @@ public class ObjectListController : MonoBehaviour
     private List<GameObject> buttons = new List<GameObject>();
 
     public int currentSelectedIndex = -1;
+    private bool isDrawerOpen = false;
+    public bool IsDrawerOpen => isDrawerOpen;
 
 
     // Start is called before the first frame update
@@ -36,14 +38,20 @@ public class ObjectListController : MonoBehaviour
 
 
     void RegisterAllButtons() {
+        buttons.Clear();
         for (int i = 0; i < buttonsContent.transform.childCount; i++) {
             GameObject button = buttonsContent.transform.GetChild(i).gameObject;
-            button.GetComponent<UISelectionButton>().objectListController = this;
+            UISelectionButton selectBtn = button.GetComponent<UISelectionButton>();
+            if (selectBtn != null) {
+                selectBtn.objectListController = this;
+            }
             buttons.Add(button);
         }
-        float buttonWidth = buttons[0].GetComponent<RectTransform>().rect.width;
-        float ContentWidth = buttonWidth * buttons.Count;
-        buttonsContent.GetComponent<RectTransform>().sizeDelta = new Vector2(ContentWidth, buttonsContent.GetComponent<RectTransform>().rect.height);
+        if (buttons.Count > 0) {
+            float buttonWidth = buttons[0].GetComponent<RectTransform>().rect.width;
+            float contentWidth = buttonWidth * buttons.Count;
+            buttonsContent.GetComponent<RectTransform>().sizeDelta = new Vector2(contentWidth, buttonsContent.GetComponent<RectTransform>().rect.height);
+        }
     }
 
     IEnumerator MoveItemList(float startPosition, float endPosition) {
@@ -70,20 +78,28 @@ public class ObjectListController : MonoBehaviour
             }
         }
     }
-    void EnableItemList() {
-        StartCoroutine(MoveItemList(closedPosition, openPosition));
-        ScreenRayInteractor.Instance.ClearSelection();
-        ScreenRayInteractor.Instance.isSpawnerActivated = true;
+    public void EnableItemList() {
+        isDrawerOpen = true;
+        StopAllCoroutines();
+        StartCoroutine(MoveItemList(itemListController.anchoredPosition.y, openPosition));
+        // Keep current selection intact so artwork can be replaced if selected
+        if (ScreenRayInteractor.Instance != null && ScreenRayInteractor.Instance.currentSelectedObject == null) {
+            ScreenRayInteractor.Instance.isSpawnerActivated = true;
+        }
     }
-    void DisableItemList() {
-        StartCoroutine(MoveItemList(openPosition, closedPosition));
+    public void DisableItemList() {
+        isDrawerOpen = false;
+        StopAllCoroutines();
+        StartCoroutine(MoveItemList(itemListController.anchoredPosition.y, closedPosition));
         currentSelectedIndex = -1;
-        ScreenRayInteractor.Instance.currentChosenPrefab = null;
-        ScreenRayInteractor.Instance.isSpawnerActivated = false;
+        if (ScreenRayInteractor.Instance != null) {
+            ScreenRayInteractor.Instance.currentChosenPrefab = null;
+            ScreenRayInteractor.Instance.isSpawnerActivated = false;
+        }
     }
 
     public void ToggleItemList() {
-        if (ScreenRayInteractor.Instance.isSpawnerActivated == false) {
+        if (!isDrawerOpen) {
             EnableItemList();
         } else {
             DisableItemList();

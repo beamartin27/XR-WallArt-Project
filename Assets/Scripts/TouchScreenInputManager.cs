@@ -32,6 +32,12 @@ public class TouchScreenInputManager : Singleton<TouchScreenInputManager>
     //public UnityEvent OnMultiTouchBegan;
 
     public bool isDoingRotate = false;
+    public bool isPinchScaling = false;
+
+#if UNITY_EDITOR
+    private bool isMouseWheelScaling = false;
+    private float lastMouseWheelTime = 0f;
+#endif
 
     void OnEnable() {
 #if UNITY_EDITOR
@@ -80,10 +86,43 @@ public class TouchScreenInputManager : Singleton<TouchScreenInputManager>
                 AssignmentScript.Instance.ObjectRotation(ScreenRayInteractor.Instance.currentSelectedObject.gameObject, -1f);
             }
             if (keyboard.upArrowKey.isPressed) {
+                if (ArtworkSizeManager.Instance != null) {
+                    ArtworkSizeManager.Instance.CancelActiveSnap();
+                }
                 AssignmentScript.Instance.ObjectScaling(ScreenRayInteractor.Instance.currentSelectedObject.gameObject, 1.01f);
             }
             if (keyboard.downArrowKey.isPressed) {
+                if (ArtworkSizeManager.Instance != null) {
+                    ArtworkSizeManager.Instance.CancelActiveSnap();
+                }
                 AssignmentScript.Instance.ObjectScaling(ScreenRayInteractor.Instance.currentSelectedObject.gameObject, 0.99f);
+            }
+
+            // Snap to nearest A-size preset (A4, A3, A2) when manual scaling key is released
+            if (keyboard.upArrowKey.wasReleasedThisFrame || keyboard.downArrowKey.wasReleasedThisFrame) {
+                if (ArtworkSizeManager.Instance != null) {
+                    ArtworkSizeManager.Instance.SnapToNearestPreset(ScreenRayInteractor.Instance.currentSelectedObject.gameObject);
+                }
+            }
+
+            // Optional mouse wheel manual scaling with snapping in Editor
+            if (mouse != null) {
+                float scroll = mouse.scroll.ReadValue().y;
+                if (Mathf.Abs(scroll) > 0.01f) {
+                    if (ArtworkSizeManager.Instance != null) {
+                        ArtworkSizeManager.Instance.CancelActiveSnap();
+                    }
+                    float scaleFactor = scroll > 0 ? 1.03f : 0.97f;
+                    AssignmentScript.Instance.ObjectScaling(ScreenRayInteractor.Instance.currentSelectedObject.gameObject, scaleFactor);
+                    isMouseWheelScaling = true;
+                    lastMouseWheelTime = Time.time;
+                }
+                if (isMouseWheelScaling && (Time.time - lastMouseWheelTime > 0.2f)) {
+                    isMouseWheelScaling = false;
+                    if (ArtworkSizeManager.Instance != null) {
+                        ArtworkSizeManager.Instance.SnapToNearestPreset(ScreenRayInteractor.Instance.currentSelectedObject.gameObject);
+                    }
+                }
             }
 
         }
@@ -125,10 +164,26 @@ public class TouchScreenInputManager : Singleton<TouchScreenInputManager>
                         Vector2 LastFrameTouch2 = touch2.screenPosition - touch2.delta;
                         float LastFrameTouchDelta = (LastFrameTouch1 - LastFrameTouch2).magnitude;
                         float CurrentFrameTouchDelta = (touch1.screenPosition - touch2.screenPosition).magnitude;
-                        float scaleFactor = CurrentFrameTouchDelta / LastFrameTouchDelta;
-                        AssignmentScript.Instance.ObjectScaling(ScreenRayInteractor.Instance.currentSelectedObject.gameObject, scaleFactor);
+                        if (LastFrameTouchDelta > 0.001f) {
+                            float scaleFactor = CurrentFrameTouchDelta / LastFrameTouchDelta;
+                            if (!float.IsNaN(scaleFactor) && !float.IsInfinity(scaleFactor) && Mathf.Abs(scaleFactor - 1f) > 0.0005f) {
+                                if (ArtworkSizeManager.Instance != null) {
+                                    ArtworkSizeManager.Instance.CancelActiveSnap();
+                                }
+                                AssignmentScript.Instance.ObjectScaling(ScreenRayInteractor.Instance.currentSelectedObject.gameObject, scaleFactor);
+                                isPinchScaling = true;
+                            }
+                        }
                     }
                 }
+            }
+        }
+
+        // Snap to nearest A-size preset (A4, A3, A2) when two-finger pinch ends
+        if (isPinchScaling && touchCount < 2) {
+            isPinchScaling = false;
+            if (ArtworkSizeManager.Instance != null && ScreenRayInteractor.Instance != null && ScreenRayInteractor.Instance.currentSelectedObject != null) {
+                ArtworkSizeManager.Instance.SnapToNearestPreset(ScreenRayInteractor.Instance.currentSelectedObject.gameObject);
             }
         }
 #endif
