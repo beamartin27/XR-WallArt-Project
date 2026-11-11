@@ -1,5 +1,6 @@
 using UnityEngine;
 using UnityEngine.InputSystem;
+using UnityEngine.XR.ARFoundation;
 using TrackedPoseDriver = UnityEngine.InputSystem.XR.TrackedPoseDriver;
 
 /// <summary>
@@ -11,10 +12,14 @@ using TrackedPoseDriver = UnityEngine.InputSystem.XR.TrackedPoseDriver;
 /// the phone moves, and "upright" artwork looks turned 90°.
 ///
 /// How it works: while the phone is held upright (checked with the accelerometer, which does not
-/// depend on the AR pose), the camera's roll relative to the AR world's "up" should be ~0°.
-/// Any consistent offset is snapped to the nearest 90° and applied to the camera every time the
-/// TrackedPoseDriver writes a new pose. Devices without the problem (Android, XR Simulation)
-/// measure ~0° and get no correction.
+/// depend on the AR pose) and ARKit is tracking, the camera's roll relative to the AR world's
+/// "up" should be ~0°. Any consistent offset is snapped to the nearest 90° and applied to the
+/// camera every time the TrackedPoseDriver writes a new pose. Devices without the problem
+/// (Android, XR Simulation) measure ~0° and get no correction.
+///
+/// The measurement keeps running for the whole session: a new offset only replaces the current
+/// one after it has been seen consistently, so a bad early reading (e.g. the placeholder pose
+/// before tracking starts) cannot lock in a wrong correction.
 ///
 /// Added automatically to the AR camera at startup.
 /// </summary>
@@ -22,13 +27,22 @@ public class ARCameraOrientationFix : MonoBehaviour
 {
     /// <summary>Correction currently applied, in degrees around the camera's view axis.</summary>
     public static int CorrectionDegrees { get; private set; }
-    /// <summary>True once the correction has been measured and locked in.</summary>
-    public static bool IsLocked { get; private set; }
+    /// <summary>True once the current correction has been confirmed by consistent measurements.</summary>
+    public static bool IsConfirmed { get; private set; }
+    /// <summary>Most recent measured roll offset (degrees), or NaN if the last frame could not be measured.</summary>
+    public static float LastMeasuredRoll { get; private set; } = float.NaN;
 
-    const int k_SamplesToLock = 15;
+    // Consecutive frames that must agree before a correction is confirmed or changed
+    const int k_FramesToConfirm = 20;
+    // A reading must be within this many degrees of a multiple of 90° to count
+    const float k_SnapTolerance = 25f;
 
-    int m_CandidateSteps;
-    int m_CandidateCount;
+    int m_CurrentSteps;        // applied correction in quarter turns (0..3)
+    int m_CandidateSteps = -1; // a different correction being considered
+    int m_CandidateFrames;
+    int m_ConfirmFrames;
+    int m_LastMeasuredFrame = -1;
+
     Quaternion m_LastWrittenRotation;
     bool m_HasWritten;
 
@@ -45,8 +59,12 @@ public class ARCameraOrientationFix : MonoBehaviour
     void OnEnable()
     {
         CorrectionDegrees = 0;
-        IsLocked = false;
-        m_CandidateCount = 0;
+        IsConfirmed = false;
+        LastMeasuredRoll = float.NaN;
+        m_CurrentSteps = 0;
+        m_CandidateSteps = -1;
+        m_CandidateFrames = 0;
+        m_ConfirmFrames = 0;
         m_HasWritten = false;
 
         if (Accelerometer.current != null && !Accelerometer.current.enabled)
@@ -70,8 +88,12 @@ public class ARCameraOrientationFix : MonoBehaviour
         if (m_HasWritten && Quaternion.Angle(raw, m_LastWrittenRotation) < 0.01f)
             return;
 
-        if (!IsLocked)
+        // At most one measurement per rendered frame (onAfterUpdate can fire several times)
+        if (Time.frameCount != m_LastMeasuredFrame)
+        {
+            m_LastMeasuredFrame = Time.frameCount;
             Measure(raw);
+        }
 
         if (CorrectionDegrees != 0)
         {
@@ -80,10 +102,23 @@ public class ARCameraOrientationFix : MonoBehaviour
             m_LastWrittenRotation = corrected;
             m_HasWritten = true;
         }
+        else
+        {
+            m_HasWritten = false;
+        }
     }
 
     void Measure(Quaternion raw)
     {
+        LastMeasuredRoll = float.NaN;
+
+        // Only trust the pose once ARKit/ARCore is actually tracking. Before that the camera sits at
+        // its default rotation, which would read as "no offset".
+        if (ARSession.state != ARSessionState.SessionTracking)
+            return;
+        if (Quaternion.Angle(raw, Quaternion.identity) < 0.5f)
+            return;
+
         var accel = Accelerometer.current;
         if (accel == null || !accel.enabled)
             return;
@@ -106,24 +141,40 @@ public class ARCameraOrientationFix : MonoBehaviour
 
         Vector3 upRef = Vector3.ProjectOnPlane(Vector3.up, forward);
         float roll = Vector3.SignedAngle(upRef, up, forward);
-        int steps = Mathf.RoundToInt(-roll / 90f);
-        // Only trust readings that are close to a clean multiple of 90°
-        if (Mathf.Abs(-roll - steps * 90f) > 25f)
-            return;
+        LastMeasuredRoll = roll;
 
+        int steps = Mathf.RoundToInt(-roll / 90f);
+        if (Mathf.Abs(-roll - steps * 90f) > k_SnapTolerance)
+            return;
+        steps = ((steps % 4) + 4) % 4;
+
+        if (steps == m_CurrentSteps)
+        {
+            // Current correction agrees with what we measure
+            m_CandidateSteps = -1;
+            m_CandidateFrames = 0;
+            if (!IsConfirmed && ++m_ConfirmFrames >= k_FramesToConfirm)
+                IsConfirmed = true;
+            return;
+        }
+
+        // A different correction is measured: switch only after it is seen consistently
+        m_ConfirmFrames = 0;
         if (steps == m_CandidateSteps)
-            m_CandidateCount++;
+            m_CandidateFrames++;
         else
         {
             m_CandidateSteps = steps;
-            m_CandidateCount = 1;
+            m_CandidateFrames = 1;
         }
 
-        if (m_CandidateCount >= k_SamplesToLock)
+        if (m_CandidateFrames >= k_FramesToConfirm)
         {
-            CorrectionDegrees = ((steps % 4) + 4) % 4 * 90;
-            if (CorrectionDegrees > 180) CorrectionDegrees -= 360;
-            IsLocked = true;
+            m_CurrentSteps = steps;
+            CorrectionDegrees = steps == 3 ? -90 : steps * 90;
+            IsConfirmed = true;
+            m_CandidateSteps = -1;
+            m_CandidateFrames = 0;
             Debug.Log($"[ARCameraOrientationFix] Camera roll offset detected; applying {CorrectionDegrees}° correction.");
         }
     }

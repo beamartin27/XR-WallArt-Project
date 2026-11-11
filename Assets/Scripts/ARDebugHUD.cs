@@ -51,8 +51,11 @@ public class ARDebugHUD : MonoBehaviour
             m_Text.AppendLine($"Cam pos: {t.position.ToString("F2")}");
             m_Text.AppendLine($"Cam ROLL vs world up: {roll:0}°   pitch: {pitch:0}°");
             var accel = Accelerometer.current;
-            m_Text.AppendLine($"Orientation fix: {(ARCameraOrientationFix.IsLocked ? ARCameraOrientationFix.CorrectionDegrees + "° (locked)" : "measuring - hold phone upright")}" +
-                              $"  accel: {(accel != null && accel.enabled ? accel.acceleration.ReadValue().ToString("F2") : "n/a")}");
+            float measured = ARCameraOrientationFix.LastMeasuredRoll;
+            m_Text.AppendLine($"Orientation fix: {ARCameraOrientationFix.CorrectionDegrees}° " +
+                              $"({(ARCameraOrientationFix.IsConfirmed ? "confirmed" : "measuring - hold phone upright")})" +
+                              $"  raw roll: {(float.IsNaN(measured) ? "-" : measured.ToString("0") + "°")}");
+            m_Text.AppendLine($"AR session: {ARSession.state}  accel: {(accel != null && accel.enabled ? accel.acceleration.ReadValue().ToString("F2") : "n/a")}");
 
             var tpd = cam.GetComponent<TrackedPoseDriver>();
             if (tpd != null)
