@@ -12,6 +12,13 @@ using UnityEngine.UI;
 /// </summary>
 public class WallArtUIController : MonoBehaviour
 {
+    public enum ActiveDrawerPanel
+    {
+        None,
+        Art,
+        Size
+    }
+
     [Header("Primary Navigation Buttons")]
     public Button artworkNavButton;
     public Button frameNavButton;
@@ -30,7 +37,9 @@ public class WallArtUIController : MonoBehaviour
     public Button sizeA2Button;
 
     private bool wasSelectedLastFrame = false;
-    private float lastArtClickTime = 0f;
+    private float lastNavClickTime = 0f;
+    private ActiveDrawerPanel activePanel = ActiveDrawerPanel.None;
+    public ActiveDrawerPanel CurrentActivePanel => activePanel;
 
     private void OnEnable()
     {
@@ -55,6 +64,12 @@ public class WallArtUIController : MonoBehaviour
 
     private void Start()
     {
+        // Permanently hide the redundant rotation button - rotation is now done via 2-finger twist or simulator arrow keys
+        if (rotateNavButton != null)
+        {
+            rotateNavButton.SetActive(false);
+        }
+
         if (artworkNavButton != null)
         {
             artworkNavButton.onClick.RemoveAllListeners();
@@ -116,6 +131,8 @@ public class WallArtUIController : MonoBehaviour
             framePlaceholderPanel.SetActive(false);
         }
 
+        activePanel = ActiveDrawerPanel.None;
+
         // Set initial button active states (unselected mode)
         UpdateContextualButtons(false);
     }
@@ -138,8 +155,11 @@ public class WallArtUIController : MonoBehaviour
             }
             else
             {
-                // When deselected, close contextual panels
-                if (sizePresetsPanel != null) sizePresetsPanel.SetActive(false);
+                // When deselected, close the Size panel if it was open
+                if (activePanel == ActiveDrawerPanel.Size)
+                {
+                    CloseDrawer();
+                }
                 if (framePlaceholderPanel != null) framePlaceholderPanel.SetActive(false);
             }
         }
@@ -150,27 +170,62 @@ public class WallArtUIController : MonoBehaviour
         // Only toggle contextual buttons visibility based on selection; positions/sizes are managed by the user in the Unity Editor
         if (sizeNavButton != null) sizeNavButton.gameObject.SetActive(hasSelection);
         if (trashNavButton != null) trashNavButton.gameObject.SetActive(hasSelection);
-        if (rotateNavButton != null) rotateNavButton.SetActive(hasSelection);
+        if (rotateNavButton != null) rotateNavButton.SetActive(false); // Permanently hidden as rotation is 2-finger / arrow keys
     }
 
     public void OnArtworkNavClicked()
     {
-        if (Time.unscaledTime - lastArtClickTime < 0.25f) return;
-        lastArtClickTime = Time.unscaledTime;
+        if (Time.unscaledTime - lastNavClickTime < 0.25f) return;
+        lastNavClickTime = Time.unscaledTime;
 
-        if (sizePresetsPanel != null) sizePresetsPanel.SetActive(false);
         if (framePlaceholderPanel != null) framePlaceholderPanel.SetActive(false);
+
+        if (activePanel == ActiveDrawerPanel.Art && objectListDrawer != null && objectListDrawer.IsDrawerOpen)
+        {
+            // Already open on Art -> toggle closed
+            CloseDrawer();
+        }
+        else
+        {
+            // Open / switch to Art panel
+            ShowArtPanel();
+        }
+    }
+
+    public void ShowArtPanel()
+    {
+        activePanel = ActiveDrawerPanel.Art;
+
+        if (sizePresetsPanel != null)
+        {
+            sizePresetsPanel.SetActive(false);
+        }
 
         if (objectListDrawer != null)
         {
-            objectListDrawer.ToggleItemList();
+            if (objectListDrawer.itemList != null)
+            {
+                objectListDrawer.itemList.gameObject.SetActive(true);
+            }
+
+            if (!objectListDrawer.IsDrawerOpen)
+            {
+                objectListDrawer.EnableItemList();
+            }
+            else
+            {
+                // If drawer was already open, ensure spawner is armed if no object is selected
+                if (ScreenRayInteractor.Instance != null && ScreenRayInteractor.Instance.currentSelectedObject == null)
+                {
+                    ScreenRayInteractor.Instance.isSpawnerActivated = true;
+                }
+            }
         }
     }
 
     public void OnFrameNavClicked()
     {
-        if (sizePresetsPanel != null) sizePresetsPanel.SetActive(false);
-        if (objectListDrawer != null && objectListDrawer.IsDrawerOpen) objectListDrawer.DisableItemList();
+        CloseDrawer();
 
         if (framePlaceholderPanel != null)
         {
@@ -184,16 +239,75 @@ public class WallArtUIController : MonoBehaviour
 
     public void OnSizeNavClicked()
     {
+        if (Time.unscaledTime - lastNavClickTime < 0.25f) return;
+        lastNavClickTime = Time.unscaledTime;
+
         if (framePlaceholderPanel != null) framePlaceholderPanel.SetActive(false);
-        if (objectListDrawer != null && objectListDrawer.IsDrawerOpen) objectListDrawer.DisableItemList();
+
+        if (activePanel == ActiveDrawerPanel.Size && objectListDrawer != null && objectListDrawer.IsDrawerOpen)
+        {
+            // Already open on Size -> toggle closed
+            CloseDrawer();
+        }
+        else
+        {
+            // Open / switch to Size panel
+            ShowSizePanel();
+        }
+    }
+
+    public void ShowSizePanel()
+    {
+        activePanel = ActiveDrawerPanel.Size;
+
+        if (objectListDrawer != null && objectListDrawer.itemList != null)
+        {
+            objectListDrawer.itemList.gameObject.SetActive(false);
+        }
 
         if (sizePresetsPanel != null)
         {
-            bool willBeActive = !sizePresetsPanel.activeSelf;
-            sizePresetsPanel.SetActive(willBeActive);
-            if (willBeActive && ArtworkSizeManager.Instance != null)
+            sizePresetsPanel.SetActive(true);
+        }
+
+        if (ArtworkSizeManager.Instance != null)
+        {
+            UpdateSizeButtonsHighlight(ArtworkSizeManager.Instance.GetCurrentPreset());
+        }
+
+        if (objectListDrawer != null)
+        {
+            if (!objectListDrawer.IsDrawerOpen)
             {
-                UpdateSizeButtonsHighlight(ArtworkSizeManager.Instance.GetCurrentPreset());
+                objectListDrawer.EnableItemList();
+            }
+            // Disarm spawner while on size panel so tapping screen doesn't spawn art
+            if (ScreenRayInteractor.Instance != null)
+            {
+                ScreenRayInteractor.Instance.isSpawnerActivated = false;
+            }
+        }
+    }
+
+    public void CloseDrawer()
+    {
+        activePanel = ActiveDrawerPanel.None;
+
+        if (objectListDrawer != null && objectListDrawer.IsDrawerOpen)
+        {
+            objectListDrawer.DisableItemList(() =>
+            {
+                if (sizePresetsPanel != null)
+                {
+                    sizePresetsPanel.SetActive(false);
+                }
+            });
+        }
+        else
+        {
+            if (sizePresetsPanel != null)
+            {
+                sizePresetsPanel.SetActive(false);
             }
         }
     }
@@ -243,8 +357,7 @@ public class WallArtUIController : MonoBehaviour
             ScreenRayInteractor.Instance.DeleteSelection();
         }
 
-        if (sizePresetsPanel != null) sizePresetsPanel.SetActive(false);
+        CloseDrawer();
         if (framePlaceholderPanel != null) framePlaceholderPanel.SetActive(false);
-        if (objectListDrawer != null && objectListDrawer.IsDrawerOpen) objectListDrawer.DisableItemList();
     }
 }

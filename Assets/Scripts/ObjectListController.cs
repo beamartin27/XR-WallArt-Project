@@ -31,8 +31,9 @@ public class ObjectListController : MonoBehaviour
         ScreenRayInteractor.Instance.isSpawnerActivated = false;
         screenHeight = Screen.height;
         screenWidth = Screen.width;
-        closedPosition = -itemList.rect.height/2;
-        openPosition = itemList.rect.height/2;
+        float h = (itemList != null && itemList.rect.height > 0) ? itemList.rect.height : 360f;
+        closedPosition = -h / 2f;
+        openPosition = h / 2f;
         itemListController.anchoredPosition = new Vector2(0, closedPosition);
         RegisterAllButtons();
     }
@@ -55,7 +56,7 @@ public class ObjectListController : MonoBehaviour
         }
     }
 
-    IEnumerator MoveItemList(float startPosition, float endPosition) {
+    IEnumerator MoveItemList(float startPosition, float endPosition, System.Action onComplete = null) {
         float elapsedTime = 0;
         while (elapsedTime < animationDuration) {
             itemListController.anchoredPosition = new Vector2(0, Mathf.Lerp(startPosition, endPosition, elapsedTime / animationDuration));
@@ -63,6 +64,7 @@ public class ObjectListController : MonoBehaviour
             yield return null;
         }
         itemListController.anchoredPosition = new Vector2(0, endPosition);
+        onComplete?.Invoke();
     }
 
     // Update is called once per frame
@@ -88,10 +90,10 @@ public class ObjectListController : MonoBehaviour
             ScreenRayInteractor.Instance.isSpawnerActivated = true;
         }
     }
-    public void DisableItemList() {
+    public void DisableItemList(System.Action onComplete = null) {
         isDrawerOpen = false;
         StopAllCoroutines();
-        StartCoroutine(MoveItemList(itemListController.anchoredPosition.y, closedPosition));
+        StartCoroutine(MoveItemList(itemListController.anchoredPosition.y, closedPosition, onComplete));
         currentSelectedIndex = -1;
         if (ScreenRayInteractor.Instance != null) {
             ScreenRayInteractor.Instance.currentChosenPrefab = null;
