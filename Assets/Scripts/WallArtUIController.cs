@@ -40,9 +40,20 @@ public class WallArtUIController : MonoBehaviour
     public GameObject framePlaceholderPanel;
 
     [Header("Size Preset Buttons")]
+    public Button sizeA5Button;
     public Button sizeA4Button;
     public Button sizeA3Button;
     public Button sizeA2Button;
+    public Button sizeA1Button;
+
+    [Header("General Scale Preset Buttons")]
+    public Button sizeSmallButton;
+    public Button sizeMediumButton;
+    public Button sizeBigButton;
+
+    [Header("Orientation Preset Buttons")]
+    public Button portraitButton;
+    public Button landscapeButton;
 
     [Header("Layout")]
     [Tooltip("Lay out the toolbar and drawer in code so they fit every phone screen. " +
@@ -103,6 +114,8 @@ public class WallArtUIController : MonoBehaviour
         if (ArtworkSizeManager.Instance != null)
         {
             ArtworkSizeManager.Instance.OnPresetChanged += HandlePresetChanged;
+            ArtworkSizeManager.Instance.OnGeneralPresetChanged += HandleGeneralPresetChanged;
+            ArtworkSizeManager.Instance.OnOrientationChanged += HandleOrientationChanged;
         }
     }
 
@@ -111,6 +124,8 @@ public class WallArtUIController : MonoBehaviour
         if (ArtworkSizeManager.Instance != null)
         {
             ArtworkSizeManager.Instance.OnPresetChanged -= HandlePresetChanged;
+            ArtworkSizeManager.Instance.OnGeneralPresetChanged -= HandleGeneralPresetChanged;
+            ArtworkSizeManager.Instance.OnOrientationChanged -= HandleOrientationChanged;
         }
     }
 
@@ -119,13 +134,26 @@ public class WallArtUIController : MonoBehaviour
         UpdateSizeButtonsHighlight(preset);
     }
 
+    private void HandleGeneralPresetChanged(GeneralSizePreset preset)
+    {
+        UpdateGeneralSizeButtonsHighlight(preset);
+    }
+
+    private void HandleOrientationChanged(ArtworkOrientation orientation)
+    {
+        UpdateOrientationButtonsHighlight(orientation);
+    }
+
     private void Start()
     {
-        // Permanently hide the redundant rotation button - rotation is now done via 2-finger twist or simulator arrow keys
+        // Permanently hide redundant rotation button - rotation is done via 2-finger twist or simulator arrow keys
         if (rotateNavButton != null)
         {
             rotateNavButton.SetActive(false);
         }
+
+        // Configure smaller button scales, size presets (A5..A1), and orientation toggles (Portrait/Landscape)
+        EnsureSizePresetsAndOrientationButtons();
 
         if (artworkNavButton != null)
         {
@@ -159,22 +187,23 @@ public class WallArtUIController : MonoBehaviour
         }
 
         // Setup Size Preset Buttons
-        if (sizeA4Button != null)
+        SetupSizeButton(sizeA5Button, ArtworkSizePreset.A5);
+        SetupSizeButton(sizeA4Button, ArtworkSizePreset.A4);
+        SetupSizeButton(sizeA3Button, ArtworkSizePreset.A3);
+        SetupSizeButton(sizeA2Button, ArtworkSizePreset.A2);
+        SetupSizeButton(sizeA1Button, ArtworkSizePreset.A1);
+
+        // Setup Orientation Preset Buttons
+        if (portraitButton != null)
         {
-            sizeA4Button.onClick.RemoveAllListeners();
-            sizeA4Button.onClick.AddListener(() => OnSizePresetClicked(ArtworkSizePreset.A4));
+            portraitButton.onClick.RemoveAllListeners();
+            portraitButton.onClick.AddListener(() => OnOrientationPresetClicked(ArtworkOrientation.Portrait));
         }
 
-        if (sizeA3Button != null)
+        if (landscapeButton != null)
         {
-            sizeA3Button.onClick.RemoveAllListeners();
-            sizeA3Button.onClick.AddListener(() => OnSizePresetClicked(ArtworkSizePreset.A3));
-        }
-
-        if (sizeA2Button != null)
-        {
-            sizeA2Button.onClick.RemoveAllListeners();
-            sizeA2Button.onClick.AddListener(() => OnSizePresetClicked(ArtworkSizePreset.A2));
+            landscapeButton.onClick.RemoveAllListeners();
+            landscapeButton.onClick.AddListener(() => OnOrientationPresetClicked(ArtworkOrientation.Landscape));
         }
 
         // Build the parts of the UI that are created in code
@@ -219,6 +248,169 @@ public class WallArtUIController : MonoBehaviour
         UpdateSizeLabels();
     }
 
+    private void EnsureSizePresetsAndOrientationButtons()
+    {
+        // Apply smaller, sleek scaling to bottom navigation buttons
+        Vector3 smallerScale = new Vector3(1.5f, 1.5f, 1f);
+        if (artworkNavButton != null) artworkNavButton.transform.localScale = smallerScale;
+        if (frameNavButton != null) frameNavButton.transform.localScale = smallerScale;
+        if (trashNavButton != null) trashNavButton.transform.localScale = smallerScale;
+        if (sizeNavButton != null)
+        {
+            sizeNavButton.transform.localScale = smallerScale;
+            RectTransform srt = sizeNavButton.GetComponent<RectTransform>();
+            if (srt != null && artworkNavButton != null)
+            {
+                RectTransform artRt = artworkNavButton.GetComponent<RectTransform>();
+                if (artRt != null)
+                {
+                    srt.anchoredPosition = new Vector2(srt.anchoredPosition.x, artRt.anchoredPosition.y);
+                }
+            }
+        }
+
+        if (sizePresetsPanel == null) return;
+
+        // Scale down size presets panel and expand dimensions for 2-row layout
+        sizePresetsPanel.transform.localScale = smallerScale;
+        RectTransform panelRt = sizePresetsPanel.GetComponent<RectTransform>();
+        if (panelRt != null)
+        {
+            panelRt.sizeDelta = new Vector2(640f, 170f);
+        }
+
+        Vector2 sizeBtnDimensions = new Vector2(90f, 55f);
+        float topRowY = 32f;
+        float bottomRowY = -35f;
+
+        if (sizeA4Button != null)
+        {
+            RectTransform rt = sizeA4Button.GetComponent<RectTransform>();
+            if (rt != null) { rt.anchoredPosition = new Vector2(-100f, topRowY); rt.sizeDelta = sizeBtnDimensions; }
+            TMPro.TextMeshProUGUI tmp = sizeA4Button.GetComponentInChildren<TMPro.TextMeshProUGUI>();
+            if (tmp != null) tmp.fontSize = 22;
+        }
+
+        if (sizeA3Button != null)
+        {
+            RectTransform rt = sizeA3Button.GetComponent<RectTransform>();
+            if (rt != null) { rt.anchoredPosition = new Vector2(0f, topRowY); rt.sizeDelta = sizeBtnDimensions; }
+            TMPro.TextMeshProUGUI tmp = sizeA3Button.GetComponentInChildren<TMPro.TextMeshProUGUI>();
+            if (tmp != null) tmp.fontSize = 22;
+        }
+
+        if (sizeA2Button != null)
+        {
+            RectTransform rt = sizeA2Button.GetComponent<RectTransform>();
+            if (rt != null) { rt.anchoredPosition = new Vector2(100f, topRowY); rt.sizeDelta = sizeBtnDimensions; }
+            TMPro.TextMeshProUGUI tmp = sizeA2Button.GetComponentInChildren<TMPro.TextMeshProUGUI>();
+            if (tmp != null) tmp.fontSize = 22;
+        }
+
+        // Create A5 button if null
+        if (sizeA5Button == null && sizeA4Button != null)
+        {
+            GameObject a5Obj = Instantiate(sizeA4Button.gameObject, sizePresetsPanel.transform);
+            a5Obj.name = "Button_A5";
+            RectTransform rt = a5Obj.GetComponent<RectTransform>();
+            rt.anchoredPosition = new Vector2(-200f, topRowY);
+            rt.sizeDelta = sizeBtnDimensions;
+            TMPro.TextMeshProUGUI tmp = a5Obj.GetComponentInChildren<TMPro.TextMeshProUGUI>();
+            if (tmp != null) { tmp.text = "A5"; tmp.fontSize = 22; }
+            sizeA5Button = a5Obj.GetComponent<Button>();
+        }
+
+        // Create A1 button if null
+        if (sizeA1Button == null && sizeA2Button != null)
+        {
+            GameObject a1Obj = Instantiate(sizeA2Button.gameObject, sizePresetsPanel.transform);
+            a1Obj.name = "Button_A1";
+            RectTransform rt = a1Obj.GetComponent<RectTransform>();
+            rt.anchoredPosition = new Vector2(200f, topRowY);
+            rt.sizeDelta = sizeBtnDimensions;
+            TMPro.TextMeshProUGUI tmp = a1Obj.GetComponentInChildren<TMPro.TextMeshProUGUI>();
+            if (tmp != null) { tmp.text = "A1"; tmp.fontSize = 22; }
+            sizeA1Button = a1Obj.GetComponent<Button>();
+        }
+
+        // Create Portrait button if null
+        if (portraitButton == null && sizeA3Button != null)
+        {
+            GameObject portraitObj = Instantiate(sizeA3Button.gameObject, sizePresetsPanel.transform);
+            portraitObj.name = "Button_Portrait";
+            RectTransform rt = portraitObj.GetComponent<RectTransform>();
+            rt.anchoredPosition = new Vector2(-110f, bottomRowY);
+            rt.sizeDelta = new Vector2(170f, 50f);
+            TMPro.TextMeshProUGUI tmp = portraitObj.GetComponentInChildren<TMPro.TextMeshProUGUI>();
+            if (tmp != null) { tmp.text = "Portrait"; tmp.fontSize = 20; }
+            portraitButton = portraitObj.GetComponent<Button>();
+        }
+
+        // Create Landscape button if null
+        if (landscapeButton == null && sizeA3Button != null)
+        {
+            GameObject landscapeObj = Instantiate(sizeA3Button.gameObject, sizePresetsPanel.transform);
+            landscapeObj.name = "Button_Landscape";
+            RectTransform rt = landscapeObj.GetComponent<RectTransform>();
+            rt.anchoredPosition = new Vector2(110f, bottomRowY);
+            rt.sizeDelta = new Vector2(170f, 50f);
+            TMPro.TextMeshProUGUI tmp = landscapeObj.GetComponentInChildren<TMPro.TextMeshProUGUI>();
+            if (tmp != null) { tmp.text = "Landscape"; tmp.fontSize = 20; }
+            landscapeButton = landscapeObj.GetComponent<Button>();
+        }
+
+        // Create General Scale buttons (Small, Medium, Big) for non-standard aspect ratios
+        Vector2 genBtnDimensions = new Vector2(120f, 55f);
+        if (sizeSmallButton == null && sizeA4Button != null)
+        {
+            GameObject smallObj = Instantiate(sizeA4Button.gameObject, sizePresetsPanel.transform);
+            smallObj.name = "Button_Small";
+            RectTransform rt = smallObj.GetComponent<RectTransform>();
+            rt.anchoredPosition = new Vector2(-150f, topRowY);
+            rt.sizeDelta = genBtnDimensions;
+            TMPro.TextMeshProUGUI tmp = smallObj.GetComponentInChildren<TMPro.TextMeshProUGUI>();
+            if (tmp != null) { tmp.text = "Small"; tmp.fontSize = 20; }
+            sizeSmallButton = smallObj.GetComponent<Button>();
+            sizeSmallButton.onClick.RemoveAllListeners();
+            sizeSmallButton.onClick.AddListener(() => OnGeneralSizePresetClicked(GeneralSizePreset.Small));
+        }
+
+        if (sizeMediumButton == null && sizeA3Button != null)
+        {
+            GameObject medObj = Instantiate(sizeA3Button.gameObject, sizePresetsPanel.transform);
+            medObj.name = "Button_Medium";
+            RectTransform rt = medObj.GetComponent<RectTransform>();
+            rt.anchoredPosition = new Vector2(0f, topRowY);
+            rt.sizeDelta = genBtnDimensions;
+            TMPro.TextMeshProUGUI tmp = medObj.GetComponentInChildren<TMPro.TextMeshProUGUI>();
+            if (tmp != null) { tmp.text = "Medium"; tmp.fontSize = 20; }
+            sizeMediumButton = medObj.GetComponent<Button>();
+            sizeMediumButton.onClick.RemoveAllListeners();
+            sizeMediumButton.onClick.AddListener(() => OnGeneralSizePresetClicked(GeneralSizePreset.Medium));
+        }
+
+        if (sizeBigButton == null && sizeA2Button != null)
+        {
+            GameObject bigObj = Instantiate(sizeA2Button.gameObject, sizePresetsPanel.transform);
+            bigObj.name = "Button_Big";
+            RectTransform rt = bigObj.GetComponent<RectTransform>();
+            rt.anchoredPosition = new Vector2(150f, topRowY);
+            rt.sizeDelta = genBtnDimensions;
+            TMPro.TextMeshProUGUI tmp = bigObj.GetComponentInChildren<TMPro.TextMeshProUGUI>();
+            if (tmp != null) { tmp.text = "Big"; tmp.fontSize = 20; }
+            sizeBigButton = bigObj.GetComponent<Button>();
+            sizeBigButton.onClick.RemoveAllListeners();
+            sizeBigButton.onClick.AddListener(() => OnGeneralSizePresetClicked(GeneralSizePreset.Big));
+        }
+    }
+
+    private void SetupSizeButton(Button btn, ArtworkSizePreset preset)
+    {
+        if (btn == null) return;
+        btn.onClick.RemoveAllListeners();
+        btn.onClick.AddListener(() => OnSizePresetClicked(preset));
+    }
+
     private void Update()
     {
         ARInteractable selected = Selected;
@@ -229,7 +421,11 @@ public class WallArtUIController : MonoBehaviour
             wasSelectedLastFrame = hasSelection;
             UpdateContextualButtons(hasSelection);
 
-            if (!hasSelection)
+            if (hasSelection)
+            {
+                UpdateSizeButtonsDisplay();
+            }
+            else
             {
                 // When deselected, close the Size panel if it was open
                 if (activePanel == ActiveDrawerPanel.Size)
@@ -272,7 +468,7 @@ public class WallArtUIController : MonoBehaviour
         // Size and Delete only make sense with a picture selected
         if (sizeNavButton != null) sizeNavButton.gameObject.SetActive(hasSelection);
         if (trashNavButton != null) trashNavButton.gameObject.SetActive(hasSelection);
-        if (rotateNavButton != null) rotateNavButton.SetActive(false); // Permanently hidden as rotation is 2-finger / arrow keys
+        if (rotateNavButton != null) rotateNavButton.SetActive(false);
     }
 
     // ------------------------------------------------------------------ Art
@@ -286,12 +482,10 @@ public class WallArtUIController : MonoBehaviour
 
         if (activePanel == ActiveDrawerPanel.Art && objectListDrawer != null && objectListDrawer.IsDrawerOpen)
         {
-            // Already open on Art -> toggle closed
             CloseDrawer();
         }
         else
         {
-            // Open / switch to Art panel
             ShowArtPanel();
         }
     }
@@ -322,7 +516,6 @@ public class WallArtUIController : MonoBehaviour
             }
             else
             {
-                // If drawer was already open, ensure spawner is armed if no object is selected
                 if (ScreenRayInteractor.Instance != null && ScreenRayInteractor.Instance.currentSelectedObject == null)
                 {
                     ScreenRayInteractor.Instance.isSpawnerActivated = true;
@@ -431,12 +624,10 @@ public class WallArtUIController : MonoBehaviour
 
         if (activePanel == ActiveDrawerPanel.Size && objectListDrawer != null && objectListDrawer.IsDrawerOpen)
         {
-            // Already open on Size -> toggle closed
             CloseDrawer();
         }
         else
         {
-            // Open / switch to Size panel
             ShowSizePanel();
         }
     }
@@ -459,6 +650,7 @@ public class WallArtUIController : MonoBehaviour
             sizePresetsPanel.SetActive(true);
         }
 
+        UpdateSizeButtonsDisplay();
         UpdateSizeLabels();
         if (ArtworkSizeManager.Instance != null)
         {
@@ -524,16 +716,100 @@ public class WallArtUIController : MonoBehaviour
         UpdateSizeButtonsHighlight(preset);
     }
 
-    public void UpdateSizeButtonsHighlight(ArtworkSizePreset activePreset)
+    public void OnGeneralSizePresetClicked(GeneralSizePreset preset)
+    {
+        if (ArtworkSizeManager.Instance != null)
+        {
+            ArtworkSizeManager.Instance.ApplyGeneralPreset(preset);
+        }
+        UpdateGeneralSizeButtonsHighlight(preset);
+    }
+
+    public void OnOrientationPresetClicked(ArtworkOrientation orientation)
+    {
+        if (ArtworkSizeManager.Instance != null)
+        {
+            ArtworkSizeManager.Instance.SetOrientation(orientation);
+        }
+        UpdateOrientationButtonsHighlight(orientation);
+    }
+
+    /// <summary>
+    /// Displays either standard ISO A-series presets (A5..A1) or General scale presets (Small, Medium, Big)
+    /// depending on the authentic aspect ratio of the currently selected artwork.
+    /// </summary>
+    public void UpdateSizeButtonsDisplay()
+    {
+        ArtworkProperties props = null;
+        if (ScreenRayInteractor.Instance != null && ScreenRayInteractor.Instance.currentSelectedObject != null)
+        {
+            props = ScreenRayInteractor.Instance.currentSelectedObject.GetComponent<ArtworkProperties>();
+        }
+
+        bool isStandardA = (props == null || props.ActiveSizingSystem == SizingSystem.StandardA);
+
+        // Show/hide A-series buttons
+        if (sizeA5Button != null) sizeA5Button.gameObject.SetActive(isStandardA);
+        if (sizeA4Button != null) sizeA4Button.gameObject.SetActive(isStandardA);
+        if (sizeA3Button != null) sizeA3Button.gameObject.SetActive(isStandardA);
+        if (sizeA2Button != null) sizeA2Button.gameObject.SetActive(isStandardA);
+        if (sizeA1Button != null) sizeA1Button.gameObject.SetActive(isStandardA);
+
+        // Show/hide General scale buttons
+        if (sizeSmallButton != null) sizeSmallButton.gameObject.SetActive(!isStandardA);
+        if (sizeMediumButton != null) sizeMediumButton.gameObject.SetActive(!isStandardA);
+        if (sizeBigButton != null) sizeBigButton.gameObject.SetActive(!isStandardA);
+
+        if (isStandardA)
+        {
+            ArtworkSizePreset preset = ArtworkSizeManager.Instance != null ? ArtworkSizeManager.Instance.GetCurrentPreset() : ArtworkSizePreset.A3;
+            UpdateSizeButtonsHighlight(preset);
+        }
+        else
+        {
+            GeneralSizePreset genPreset = ArtworkSizeManager.Instance != null ? ArtworkSizeManager.Instance.GetCurrentGeneralPreset() : GeneralSizePreset.Medium;
+            UpdateGeneralSizeButtonsHighlight(genPreset);
+        }
+
+        ArtworkOrientation orient = ArtworkSizeManager.Instance != null ? ArtworkSizeManager.Instance.GetCurrentOrientation() : ArtworkOrientation.Portrait;
+        UpdateOrientationButtonsHighlight(orient);
+    }
+
+    public void UpdateGeneralSizeButtonsHighlight(GeneralSizePreset activePreset)
     {
         Color normalBg = new Color(0.18f, 0.20f, 0.25f, 0.95f);
-        Color activeBg = new Color(0.16f, 0.65f, 0.42f, 1.0f); // vibrant emerald green
+        Color activeBg = new Color(0.20f, 0.50f, 0.85f, 1.0f); // crisp modern blue
         Color normalText = new Color(0.85f, 0.85f, 0.85f, 1.0f);
         Color activeText = Color.white;
 
+        SetButtonVisual(sizeSmallButton, activePreset == GeneralSizePreset.Small, normalBg, activeBg, normalText, activeText);
+        SetButtonVisual(sizeMediumButton, activePreset == GeneralSizePreset.Medium, normalBg, activeBg, normalText, activeText);
+        SetButtonVisual(sizeBigButton, activePreset == GeneralSizePreset.Big, normalBg, activeBg, normalText, activeText);
+    }
+
+    public void UpdateSizeButtonsHighlight(ArtworkSizePreset activePreset)
+    {
+        Color normalBg = new Color(0.18f, 0.20f, 0.25f, 0.95f);
+        Color activeBg = new Color(0.20f, 0.50f, 0.85f, 1.0f); // crisp modern blue
+        Color normalText = new Color(0.85f, 0.85f, 0.85f, 1.0f);
+        Color activeText = Color.white;
+
+        SetButtonVisual(sizeA5Button, activePreset == ArtworkSizePreset.A5, normalBg, activeBg, normalText, activeText);
         SetButtonVisual(sizeA4Button, activePreset == ArtworkSizePreset.A4, normalBg, activeBg, normalText, activeText);
         SetButtonVisual(sizeA3Button, activePreset == ArtworkSizePreset.A3, normalBg, activeBg, normalText, activeText);
         SetButtonVisual(sizeA2Button, activePreset == ArtworkSizePreset.A2, normalBg, activeBg, normalText, activeText);
+        SetButtonVisual(sizeA1Button, activePreset == ArtworkSizePreset.A1, normalBg, activeBg, normalText, activeText);
+    }
+
+    public void UpdateOrientationButtonsHighlight(ArtworkOrientation activeOrientation)
+    {
+        Color normalBg = new Color(0.18f, 0.20f, 0.25f, 0.95f);
+        Color activeBg = new Color(0.20f, 0.50f, 0.85f, 1.0f); // crisp modern blue
+        Color normalText = new Color(0.85f, 0.85f, 0.85f, 1.0f);
+        Color activeText = Color.white;
+
+        SetButtonVisual(portraitButton, activeOrientation == ArtworkOrientation.Portrait, normalBg, activeBg, normalText, activeText);
+        SetButtonVisual(landscapeButton, activeOrientation == ArtworkOrientation.Landscape, normalBg, activeBg, normalText, activeText);
     }
 
     private void SetButtonVisual(Button btn, bool isActive, Color normalBg, Color activeBg, Color normalText, Color activeText)
