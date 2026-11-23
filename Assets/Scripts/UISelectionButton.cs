@@ -4,6 +4,12 @@ using UnityEngine;
 using UnityEngine.EventSystems;
 using UnityEngine.UI;
 
+/// <summary>
+/// Handles interaction for an artwork button in the presets drawer:
+/// - Tap: Replaces the selected artwork in-place if an object is selected; otherwise arms spawner for tap-to-place.
+/// - Drag: Directly drags a NEW artwork into the room with live wall preview and solidification on release,
+///   WITHOUT replacing any already selected artwork.
+/// </summary>
 public class UISelectionButton : MonoBehaviour, IPointerDownHandler, IBeginDragHandler, IDragHandler, IEndDragHandler, IPointerUpHandler
 {
     public GameObject targetPrefab;
@@ -11,6 +17,8 @@ public class UISelectionButton : MonoBehaviour, IPointerDownHandler, IBeginDragH
 
     private ScrollRect parentScrollRect;
     private bool isDraggingArt = false;
+    private bool hasDragged = false;
+    private Vector2 pointerDownPosition;
 
     private void Awake()
     {
@@ -28,25 +36,17 @@ public class UISelectionButton : MonoBehaviour, IPointerDownHandler, IBeginDragH
     }
 
     /// <summary>
-    /// When the user presses down on an artwork thumbnail, immediately arm the spawner,
-    /// highlight the thumbnail, and prepare for instant drag onto the wall.
+    /// When the user presses down on an artwork thumbnail, arm the dragged prefab
+    /// and prepare for either tap (replace) or drag (add new artwork).
     /// </summary>
     public void OnPointerDown(PointerEventData eventData)
     {
         int index = GetArtworkIndex();
+        pointerDownPosition = eventData.position;
+        hasDragged = false;
+        isDraggingArt = false;
 
-        // If an artwork is currently selected on the wall, replace it immediately
-        if (ScreenRayInteractor.Instance != null && ScreenRayInteractor.Instance.currentSelectedObject != null)
-        {
-            ScreenRayInteractor.Instance.ReplaceSelectedArtwork(targetPrefab);
-            if (objectListController != null)
-            {
-                objectListController.ClearSelectionHighlight();
-            }
-            return;
-        }
-
-        // Arm the spawner immediately so the user can drag directly
+        // Arm the spawner with targetPrefab so drag placement preview has the correct model
         if (ScreenRayInteractor.Instance != null)
         {
             ScreenRayInteractor.Instance.SetTargetPrefab(targetPrefab);
@@ -62,18 +62,19 @@ public class UISelectionButton : MonoBehaviour, IPointerDownHandler, IBeginDragH
         {
             TouchScreenInputManager.Instance.primaryTouchPosition = eventData.position;
             TouchScreenInputManager.Instance.dragPosition = eventData.position;
-            TouchScreenInputManager.Instance.isDoingDrag = true;
+            TouchScreenInputManager.Instance.isDoingDrag = false;
         }
-
-        isDraggingArt = false;
     }
 
     public void OnBeginDrag(PointerEventData eventData)
     {
-        // Upward or diagonal drag towards the wall activates direct artwork placement
-        if (Mathf.Abs(eventData.delta.y) >= Mathf.Abs(eventData.delta.x) * 0.4f || eventData.delta.y > 0)
+        Vector2 delta = eventData.position - pointerDownPosition;
+
+        // Upward drag towards the wall activates direct artwork placement
+        if (delta.y > 10f || Mathf.Abs(delta.y) >= Mathf.Abs(delta.x) * 0.6f)
         {
             isDraggingArt = true;
+            hasDragged = true;
             if (TouchScreenInputManager.Instance != null)
             {
                 TouchScreenInputManager.Instance.dragPosition = eventData.position;
@@ -92,10 +93,13 @@ public class UISelectionButton : MonoBehaviour, IPointerDownHandler, IBeginDragH
 
     public void OnDrag(PointerEventData eventData)
     {
+        Vector2 delta = eventData.position - pointerDownPosition;
+
         // If the finger moves upward out of the drawer, switch to artwork dragging
-        if (!isDraggingArt && eventData.delta.y > 4f)
+        if (!isDraggingArt && delta.y > 15f)
         {
             isDraggingArt = true;
+            hasDragged = true;
             if (parentScrollRect != null)
             {
                 parentScrollRect.OnEndDrag(eventData);
@@ -104,6 +108,7 @@ public class UISelectionButton : MonoBehaviour, IPointerDownHandler, IBeginDragH
 
         if (isDraggingArt)
         {
+            hasDragged = true;
             if (TouchScreenInputManager.Instance != null)
             {
                 TouchScreenInputManager.Instance.dragPosition = eventData.position;
@@ -141,32 +146,51 @@ public class UISelectionButton : MonoBehaviour, IPointerDownHandler, IBeginDragH
 
     public void OnPointerUp(PointerEventData eventData)
     {
-        if (TouchScreenInputManager.Instance != null)
+        if (isDraggingArt)
         {
-            TouchScreenInputManager.Instance.isDoingDrag = false;
+            if (TouchScreenInputManager.Instance != null)
+            {
+                TouchScreenInputManager.Instance.isDoingDrag = false;
+            }
+            isDraggingArt = false;
         }
-        isDraggingArt = false;
+
+        // If release was within small distance without dragging, treat as tap
+        float dist = Vector2.Distance(eventData.position, pointerDownPosition);
+        if (dist < 12f && !hasDragged)
+        {
+            HandleTap();
+        }
     }
 
     /// <summary>
     /// Convenient parameterless method for Unity UI Button OnClick.
-    /// Automatically infers the button's index from its sibling index in the container.
     /// </summary>
     public void SelectArtwork()
     {
-        int index = GetArtworkIndex();
-        SetTargetPrefab(index);
+        if (!hasDragged)
+        {
+            HandleTap();
+        }
     }
 
     public void SetTargetPrefab(int i)
     {
-        int index = (i >= 0) ? i : GetArtworkIndex();
+        if (!hasDragged)
+        {
+            HandleTap();
+        }
+    }
+
+    private void HandleTap()
+    {
+        int index = GetArtworkIndex();
 
         if (ScreenRayInteractor.Instance != null)
         {
             if (ScreenRayInteractor.Instance.currentSelectedObject != null)
             {
-                // Replace currently selected artwork preserving its exact size, transform & registration
+                // Tapping thumbnail while an artwork is selected replaces it in-place
                 ScreenRayInteractor.Instance.ReplaceSelectedArtwork(targetPrefab);
                 if (objectListController != null)
                 {
@@ -175,7 +199,7 @@ public class UISelectionButton : MonoBehaviour, IPointerDownHandler, IBeginDragH
             }
             else
             {
-                // Arm spawner to place new artwork when dragging or tapping on a wall
+                // Tapping thumbnail without selection arms spawner for tap-to-place
                 ScreenRayInteractor.Instance.SetTargetPrefab(targetPrefab);
                 if (objectListController != null)
                 {

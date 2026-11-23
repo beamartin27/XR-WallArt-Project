@@ -38,6 +38,11 @@ public class WallArtUIController : MonoBehaviour
     public Button sizeA2Button;
     public Button sizeA1Button;
 
+    [Header("General Scale Preset Buttons")]
+    public Button sizeSmallButton;
+    public Button sizeMediumButton;
+    public Button sizeBigButton;
+
     [Header("Orientation Preset Buttons")]
     public Button portraitButton;
     public Button landscapeButton;
@@ -52,6 +57,7 @@ public class WallArtUIController : MonoBehaviour
         if (ArtworkSizeManager.Instance != null)
         {
             ArtworkSizeManager.Instance.OnPresetChanged += HandlePresetChanged;
+            ArtworkSizeManager.Instance.OnGeneralPresetChanged += HandleGeneralPresetChanged;
             ArtworkSizeManager.Instance.OnOrientationChanged += HandleOrientationChanged;
         }
     }
@@ -61,6 +67,7 @@ public class WallArtUIController : MonoBehaviour
         if (ArtworkSizeManager.Instance != null)
         {
             ArtworkSizeManager.Instance.OnPresetChanged -= HandlePresetChanged;
+            ArtworkSizeManager.Instance.OnGeneralPresetChanged -= HandleGeneralPresetChanged;
             ArtworkSizeManager.Instance.OnOrientationChanged -= HandleOrientationChanged;
         }
     }
@@ -68,6 +75,11 @@ public class WallArtUIController : MonoBehaviour
     private void HandlePresetChanged(ArtworkSizePreset preset)
     {
         UpdateSizeButtonsHighlight(preset);
+    }
+
+    private void HandleGeneralPresetChanged(GeneralSizePreset preset)
+    {
+        UpdateGeneralSizeButtonsHighlight(preset);
     }
 
     private void HandleOrientationChanged(ArtworkOrientation orientation)
@@ -266,6 +278,50 @@ public class WallArtUIController : MonoBehaviour
             if (tmp != null) { tmp.text = "Landscape"; tmp.fontSize = 20; }
             landscapeButton = landscapeObj.GetComponent<Button>();
         }
+
+        // Create General Scale buttons (Small, Medium, Big) for non-standard aspect ratios
+        Vector2 genBtnDimensions = new Vector2(120f, 55f);
+        if (sizeSmallButton == null && sizeA4Button != null)
+        {
+            GameObject smallObj = Instantiate(sizeA4Button.gameObject, sizePresetsPanel.transform);
+            smallObj.name = "Button_Small";
+            RectTransform rt = smallObj.GetComponent<RectTransform>();
+            rt.anchoredPosition = new Vector2(-150f, topRowY);
+            rt.sizeDelta = genBtnDimensions;
+            TMPro.TextMeshProUGUI tmp = smallObj.GetComponentInChildren<TMPro.TextMeshProUGUI>();
+            if (tmp != null) { tmp.text = "Small"; tmp.fontSize = 20; }
+            sizeSmallButton = smallObj.GetComponent<Button>();
+            sizeSmallButton.onClick.RemoveAllListeners();
+            sizeSmallButton.onClick.AddListener(() => OnGeneralSizePresetClicked(GeneralSizePreset.Small));
+        }
+
+        if (sizeMediumButton == null && sizeA3Button != null)
+        {
+            GameObject medObj = Instantiate(sizeA3Button.gameObject, sizePresetsPanel.transform);
+            medObj.name = "Button_Medium";
+            RectTransform rt = medObj.GetComponent<RectTransform>();
+            rt.anchoredPosition = new Vector2(0f, topRowY);
+            rt.sizeDelta = genBtnDimensions;
+            TMPro.TextMeshProUGUI tmp = medObj.GetComponentInChildren<TMPro.TextMeshProUGUI>();
+            if (tmp != null) { tmp.text = "Medium"; tmp.fontSize = 20; }
+            sizeMediumButton = medObj.GetComponent<Button>();
+            sizeMediumButton.onClick.RemoveAllListeners();
+            sizeMediumButton.onClick.AddListener(() => OnGeneralSizePresetClicked(GeneralSizePreset.Medium));
+        }
+
+        if (sizeBigButton == null && sizeA2Button != null)
+        {
+            GameObject bigObj = Instantiate(sizeA2Button.gameObject, sizePresetsPanel.transform);
+            bigObj.name = "Button_Big";
+            RectTransform rt = bigObj.GetComponent<RectTransform>();
+            rt.anchoredPosition = new Vector2(150f, topRowY);
+            rt.sizeDelta = genBtnDimensions;
+            TMPro.TextMeshProUGUI tmp = bigObj.GetComponentInChildren<TMPro.TextMeshProUGUI>();
+            if (tmp != null) { tmp.text = "Big"; tmp.fontSize = 20; }
+            sizeBigButton = bigObj.GetComponent<Button>();
+            sizeBigButton.onClick.RemoveAllListeners();
+            sizeBigButton.onClick.AddListener(() => OnGeneralSizePresetClicked(GeneralSizePreset.Big));
+        }
     }
 
     private void SetupSizeButton(Button btn, ArtworkSizePreset preset)
@@ -286,11 +342,7 @@ public class WallArtUIController : MonoBehaviour
 
             if (hasSelection)
             {
-                if (ArtworkSizeManager.Instance != null)
-                {
-                    UpdateSizeButtonsHighlight(ArtworkSizeManager.Instance.GetCurrentPreset());
-                    UpdateOrientationButtonsHighlight(ArtworkSizeManager.Instance.GetCurrentOrientation());
-                }
+                UpdateSizeButtonsDisplay();
             }
             else
             {
@@ -403,11 +455,7 @@ public class WallArtUIController : MonoBehaviour
             sizePresetsPanel.SetActive(true);
         }
 
-        if (ArtworkSizeManager.Instance != null)
-        {
-            UpdateSizeButtonsHighlight(ArtworkSizeManager.Instance.GetCurrentPreset());
-            UpdateOrientationButtonsHighlight(ArtworkSizeManager.Instance.GetCurrentOrientation());
-        }
+        UpdateSizeButtonsDisplay();
 
         if (objectListDrawer != null)
         {
@@ -454,6 +502,15 @@ public class WallArtUIController : MonoBehaviour
         UpdateSizeButtonsHighlight(preset);
     }
 
+    public void OnGeneralSizePresetClicked(GeneralSizePreset preset)
+    {
+        if (ArtworkSizeManager.Instance != null)
+        {
+            ArtworkSizeManager.Instance.ApplyGeneralPreset(preset);
+        }
+        UpdateGeneralSizeButtonsHighlight(preset);
+    }
+
     public void OnOrientationPresetClicked(ArtworkOrientation orientation)
     {
         if (ArtworkSizeManager.Instance != null)
@@ -461,6 +518,59 @@ public class WallArtUIController : MonoBehaviour
             ArtworkSizeManager.Instance.SetOrientation(orientation);
         }
         UpdateOrientationButtonsHighlight(orientation);
+    }
+
+    /// <summary>
+    /// Displays either standard ISO A-series presets (A5..A1) or General scale presets (Small, Medium, Big)
+    /// depending on the authentic aspect ratio of the currently selected artwork.
+    /// </summary>
+    public void UpdateSizeButtonsDisplay()
+    {
+        ArtworkProperties props = null;
+        if (ScreenRayInteractor.Instance != null && ScreenRayInteractor.Instance.currentSelectedObject != null)
+        {
+            props = ScreenRayInteractor.Instance.currentSelectedObject.GetComponent<ArtworkProperties>();
+        }
+
+        bool isStandardA = (props == null || props.ActiveSizingSystem == SizingSystem.StandardA);
+
+        // Show/hide A-series buttons
+        if (sizeA5Button != null) sizeA5Button.gameObject.SetActive(isStandardA);
+        if (sizeA4Button != null) sizeA4Button.gameObject.SetActive(isStandardA);
+        if (sizeA3Button != null) sizeA3Button.gameObject.SetActive(isStandardA);
+        if (sizeA2Button != null) sizeA2Button.gameObject.SetActive(isStandardA);
+        if (sizeA1Button != null) sizeA1Button.gameObject.SetActive(isStandardA);
+
+        // Show/hide General scale buttons
+        if (sizeSmallButton != null) sizeSmallButton.gameObject.SetActive(!isStandardA);
+        if (sizeMediumButton != null) sizeMediumButton.gameObject.SetActive(!isStandardA);
+        if (sizeBigButton != null) sizeBigButton.gameObject.SetActive(!isStandardA);
+
+        if (isStandardA)
+        {
+            ArtworkSizePreset preset = ArtworkSizeManager.Instance != null ? ArtworkSizeManager.Instance.GetCurrentPreset() : ArtworkSizePreset.A3;
+            UpdateSizeButtonsHighlight(preset);
+        }
+        else
+        {
+            GeneralSizePreset genPreset = ArtworkSizeManager.Instance != null ? ArtworkSizeManager.Instance.GetCurrentGeneralPreset() : GeneralSizePreset.Medium;
+            UpdateGeneralSizeButtonsHighlight(genPreset);
+        }
+
+        ArtworkOrientation orient = ArtworkSizeManager.Instance != null ? ArtworkSizeManager.Instance.GetCurrentOrientation() : ArtworkOrientation.Portrait;
+        UpdateOrientationButtonsHighlight(orient);
+    }
+
+    public void UpdateGeneralSizeButtonsHighlight(GeneralSizePreset activePreset)
+    {
+        Color normalBg = new Color(0.18f, 0.20f, 0.25f, 0.95f);
+        Color activeBg = new Color(0.16f, 0.65f, 0.42f, 1.0f); // vibrant emerald green
+        Color normalText = new Color(0.85f, 0.85f, 0.85f, 1.0f);
+        Color activeText = Color.white;
+
+        SetButtonVisual(sizeSmallButton, activePreset == GeneralSizePreset.Small, normalBg, activeBg, normalText, activeText);
+        SetButtonVisual(sizeMediumButton, activePreset == GeneralSizePreset.Medium, normalBg, activeBg, normalText, activeText);
+        SetButtonVisual(sizeBigButton, activePreset == GeneralSizePreset.Big, normalBg, activeBg, normalText, activeText);
     }
 
     public void UpdateSizeButtonsHighlight(ArtworkSizePreset activePreset)

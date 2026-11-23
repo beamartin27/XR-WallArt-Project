@@ -12,15 +12,19 @@ public enum ArtworkSizePreset
 }
 
 /// <summary>
-/// Manages realistic ISO standard artwork dimensions (A5, A4, A3, A2, A1) and orientation (Portrait, Landscape):
+/// Manages realistic artwork dimensions across both standard ISO A-series (A5, A4, A3, A2, A1)
+/// and non-standard/general aspect ratios (Small, Medium, Big), preserving aspect ratio:
 /// - A5: 148mm x 210mm (0.5000x scale relative to A3)
 /// - A4: 210mm x 297mm (0.7071x scale relative to A3)
 /// - A3: 297mm x 420mm (1.0000x baseline)
 /// - A2: 420mm x 594mm (1.4142x scale relative to A3)
 /// - A1: 594mm x 841mm (2.0000x scale relative to A3)
+/// - General Small: 0.7071x scale
+/// - General Medium: 1.0000x baseline
+/// - General Big: 1.4142x scale
 /// Maintains the artwork anchor flush on the vertical wall when resizing.
-/// Provides preset orientation switching (Portrait / Landscape) without angle snapping on manual rotation.
-/// Supports smooth magnetic snapping to nearest A-size on manual scale release.
+/// Provides preset orientation switching (Portrait / Landscape) respecting natural aspect ratio without angle snapping on manual rotation.
+/// Supports smooth magnetic snapping to nearest preset on manual scale release.
 /// </summary>
 public class ArtworkSizeManager : MonoBehaviour
 {
@@ -48,7 +52,12 @@ public class ArtworkSizeManager : MonoBehaviour
     public const float SCALE_A2 = 1.4142f;
     public const float SCALE_A1 = 2.0000f;
 
+    public const float SCALE_SMALL = 0.7071f;
+    public const float SCALE_MEDIUM = 1.0000f;
+    public const float SCALE_BIG = 1.4142f;
+
     public event Action<ArtworkSizePreset> OnPresetChanged;
+    public event Action<GeneralSizePreset> OnGeneralPresetChanged;
     public event Action<ArtworkOrientation> OnOrientationChanged;
 
     public ArtworkOrientation defaultOrientation = ArtworkOrientation.Portrait;
@@ -80,12 +89,19 @@ public class ArtworkSizeManager : MonoBehaviour
         };
     }
 
+    public float GetScaleMultiplier(GeneralSizePreset preset)
+    {
+        return preset switch
+        {
+            GeneralSizePreset.Small => SCALE_SMALL,
+            GeneralSizePreset.Medium => SCALE_MEDIUM,
+            GeneralSizePreset.Big => SCALE_BIG,
+            _ => 1.0f
+        };
+    }
+
     public ArtworkSizePreset GetNearestPreset(float currentScale)
     {
-        // Midpoint between A5 (0.5000) and A4 (0.7071) is ~0.6035
-        // Midpoint between A4 (0.7071) and A3 (1.0000) is ~0.8536
-        // Midpoint between A3 (1.0000) and A2 (1.4142) is ~1.2071
-        // Midpoint between A2 (1.4142) and A1 (2.0000) is ~1.7071
         if (currentScale < 0.6035f)
         {
             return ArtworkSizePreset.A5;
@@ -108,6 +124,22 @@ public class ArtworkSizeManager : MonoBehaviour
         }
     }
 
+    public GeneralSizePreset GetNearestGeneralPreset(float currentScale)
+    {
+        if (currentScale < 0.8536f)
+        {
+            return GeneralSizePreset.Small;
+        }
+        else if (currentScale < 1.2071f)
+        {
+            return GeneralSizePreset.Medium;
+        }
+        else
+        {
+            return GeneralSizePreset.Big;
+        }
+    }
+
     public void ApplyPreset(ArtworkSizePreset preset)
     {
         if (ScreenRayInteractor.Instance == null || ScreenRayInteractor.Instance.currentSelectedObject == null)
@@ -119,6 +151,19 @@ public class ArtworkSizeManager : MonoBehaviour
         ARInteractable selected = ScreenRayInteractor.Instance.currentSelectedObject;
         ApplyPresetToObject(selected.gameObject, preset);
         OnPresetChanged?.Invoke(preset);
+    }
+
+    public void ApplyGeneralPreset(GeneralSizePreset preset)
+    {
+        if (ScreenRayInteractor.Instance == null || ScreenRayInteractor.Instance.currentSelectedObject == null)
+        {
+            Debug.LogWarning("ArtworkSizeManager: No artwork currently selected to resize.");
+            return;
+        }
+
+        ARInteractable selected = ScreenRayInteractor.Instance.currentSelectedObject;
+        ApplyGeneralPresetToObject(selected.gameObject, preset);
+        OnGeneralPresetChanged?.Invoke(preset);
     }
 
     public void ApplyPresetToObject(GameObject arObject, ArtworkSizePreset preset)
@@ -140,13 +185,8 @@ public class ArtworkSizeManager : MonoBehaviour
         float scaleRatio = targetScale / currentScale;
         Vector3 anchorPoint = interactable.currentAnchorPointInWorld;
 
-        // Offset from anchor to current pivot
         Vector3 offsetFromAnchor = arObject.transform.position - anchorPoint;
-
-        // Uniform scaling preserves aspect ratio
         arObject.transform.localScale = Vector3.one * targetScale;
-
-        // Reposition so the anchor remains locked to the wall
         arObject.transform.position = anchorPoint + offsetFromAnchor * scaleRatio;
 
         ArtworkProperties props = arObject.GetComponent<ArtworkProperties>();
@@ -156,6 +196,38 @@ public class ArtworkSizeManager : MonoBehaviour
         }
 
         OnPresetChanged?.Invoke(preset);
+    }
+
+    public void ApplyGeneralPresetToObject(GameObject arObject, GeneralSizePreset preset)
+    {
+        if (arObject == null) return;
+        ARInteractable interactable = arObject.GetComponent<ARInteractable>();
+        if (interactable == null) return;
+
+        if (activeSnapCoroutine != null)
+        {
+            StopCoroutine(activeSnapCoroutine);
+            activeSnapCoroutine = null;
+        }
+
+        float targetScale = GetScaleMultiplier(preset);
+        float currentScale = arObject.transform.localScale.x;
+        if (Mathf.Approximately(currentScale, 0f)) currentScale = 1f;
+
+        float scaleRatio = targetScale / currentScale;
+        Vector3 anchorPoint = interactable.currentAnchorPointInWorld;
+
+        Vector3 offsetFromAnchor = arObject.transform.position - anchorPoint;
+        arObject.transform.localScale = Vector3.one * targetScale;
+        arObject.transform.position = anchorPoint + offsetFromAnchor * scaleRatio;
+
+        ArtworkProperties props = arObject.GetComponent<ArtworkProperties>();
+        if (props != null)
+        {
+            props.currentGeneralPreset = preset;
+        }
+
+        OnGeneralPresetChanged?.Invoke(preset);
     }
 
     /// <summary>
@@ -173,7 +245,8 @@ public class ArtworkSizeManager : MonoBehaviour
     }
 
     /// <summary>
-    /// Rotates the specified artwork on the wall to match Portrait (vertical) or Landscape (horizontal).
+    /// Rotates the specified artwork on the wall to match Portrait (tall) or Landscape (wide).
+    /// Respects whether the original source image is wide or tall.
     /// Preserves wall registration and anchor positioning.
     /// </summary>
     public void SetOrientationForObject(GameObject arObject, ArtworkOrientation orientation)
@@ -198,13 +271,27 @@ public class ArtworkSizeManager : MonoBehaviour
 
         Vector3 wallRight = Vector3.Cross(planeNormal, wallUp).normalized;
 
-        Vector3 currentUp = Vector3.ProjectOnPlane(arObject.transform.up, planeNormal).normalized;
-        Vector3 targetUp = (orientation == ArtworkOrientation.Portrait) ? wallUp : wallRight;
+        ArtworkProperties props = arObject.GetComponent<ArtworkProperties>();
+        bool isNaturalLandscape = props != null && props.IsNaturalLandscape;
 
+        // If an image is naturally wide (landscape photo), upright is its natural Landscape orientation;
+        // rotating it 90 deg makes its longer dimension vertical (Portrait).
+        // If an image is naturally tall (portrait artwork), upright is its natural Portrait orientation;
+        // rotating it 90 deg makes its longer dimension horizontal (Landscape).
+        Vector3 targetUp;
+        if (isNaturalLandscape)
+        {
+            targetUp = (orientation == ArtworkOrientation.Portrait) ? wallRight : wallUp;
+        }
+        else
+        {
+            targetUp = (orientation == ArtworkOrientation.Portrait) ? wallUp : wallRight;
+        }
+
+        Vector3 currentUp = Vector3.ProjectOnPlane(arObject.transform.up, planeNormal).normalized;
         float deltaAngle = Vector3.SignedAngle(currentUp, targetUp, planeNormal);
         AssignmentScript.Instance.ObjectRotation(arObject, deltaAngle);
 
-        ArtworkProperties props = arObject.GetComponent<ArtworkProperties>();
         if (props != null)
         {
             props.currentOrientation = orientation;
@@ -226,9 +313,6 @@ public class ArtworkSizeManager : MonoBehaviour
         return defaultOrientation;
     }
 
-    /// <summary>
-    /// Cancels any in-progress smooth scaling snap.
-    /// </summary>
     public void CancelActiveSnap()
     {
         if (activeSnapCoroutine != null)
@@ -239,7 +323,7 @@ public class ArtworkSizeManager : MonoBehaviour
     }
 
     /// <summary>
-    /// Snaps the object to the nearest A-size preset (A5, A4, A3, A2, or A1).
+    /// Snaps the object to the nearest size preset (A-series for standard posters, Small/Med/Big for general).
     /// </summary>
     public void SnapToNearestPreset(GameObject arObject, bool smooth = true)
     {
@@ -247,31 +331,56 @@ public class ArtworkSizeManager : MonoBehaviour
         ARInteractable interactable = arObject.GetComponent<ARInteractable>();
         if (interactable == null) return;
 
-        float currentScale = arObject.transform.localScale.x;
-        ArtworkSizePreset nearestPreset = GetNearestPreset(currentScale);
-        float targetScale = GetScaleMultiplier(nearestPreset);
+        ArtworkProperties props = arObject.GetComponent<ArtworkProperties>();
+        bool isGeneral = props != null && props.ActiveSizingSystem == SizingSystem.GeneralScale;
 
-        if (smooth)
+        float currentScale = arObject.transform.localScale.x;
+
+        if (isGeneral)
         {
-            CancelActiveSnap();
-            activeSnapCoroutine = StartCoroutine(SmoothScaleRoutine(interactable, targetScale, nearestPreset, 0.18f));
+            GeneralSizePreset nearest = GetNearestGeneralPreset(currentScale);
+            float targetScale = GetScaleMultiplier(nearest);
+            if (smooth)
+            {
+                CancelActiveSnap();
+                activeSnapCoroutine = StartCoroutine(SmoothScaleGeneralRoutine(interactable, targetScale, nearest, 0.18f));
+            }
+            else
+            {
+                ApplyGeneralPresetToObject(arObject, nearest);
+            }
         }
         else
         {
-            ApplyPresetToObject(arObject, nearestPreset);
+            ArtworkSizePreset nearest = GetNearestPreset(currentScale);
+            float targetScale = GetScaleMultiplier(nearest);
+            if (smooth)
+            {
+                CancelActiveSnap();
+                activeSnapCoroutine = StartCoroutine(SmoothScaleRoutine(interactable, targetScale, nearest, 0.18f));
+            }
+            else
+            {
+                ApplyPresetToObject(arObject, nearest);
+            }
         }
     }
 
-    /// <summary>
-    /// Steps up (+1) or down (-1) between A-size presets.
-    /// </summary>
     public void StepSize(GameObject arObject, int direction)
     {
         if (arObject == null) return;
-        ArtworkSizePreset current = GetCurrentPreset();
-        int newIndex = Mathf.Clamp((int)current + direction, 0, 4);
-        ArtworkSizePreset targetPreset = (ArtworkSizePreset)newIndex;
-        ApplyPreset(targetPreset);
+        ArtworkProperties props = arObject.GetComponent<ArtworkProperties>();
+        if (props != null && props.ActiveSizingSystem == SizingSystem.GeneralScale)
+        {
+            int newIndex = Mathf.Clamp((int)props.currentGeneralPreset + direction, 0, 2);
+            ApplyGeneralPreset((GeneralSizePreset)newIndex);
+        }
+        else
+        {
+            ArtworkSizePreset current = GetCurrentPreset();
+            int newIndex = Mathf.Clamp((int)current + direction, 0, 4);
+            ApplyPreset((ArtworkSizePreset)newIndex);
+        }
     }
 
     private IEnumerator SmoothScaleRoutine(ARInteractable interactable, float targetScale, ArtworkSizePreset targetPreset, float duration)
@@ -319,6 +428,51 @@ public class ArtworkSizeManager : MonoBehaviour
         activeSnapCoroutine = null;
     }
 
+    private IEnumerator SmoothScaleGeneralRoutine(ARInteractable interactable, float targetScale, GeneralSizePreset targetPreset, float duration)
+    {
+        if (interactable == null) yield break;
+        GameObject arObject = interactable.gameObject;
+
+        float startScale = arObject.transform.localScale.x;
+        if (Mathf.Approximately(startScale, 0f)) startScale = 1f;
+
+        Vector3 anchorPoint = interactable.currentAnchorPointInWorld;
+        Vector3 initialOffset = arObject.transform.position - anchorPoint;
+        float elapsed = 0f;
+
+        while (elapsed < duration)
+        {
+            if (arObject == null) yield break;
+            elapsed += Time.deltaTime;
+            float t = Mathf.Clamp01(elapsed / duration);
+            t = Mathf.Sin(t * Mathf.PI * 0.5f);
+
+            float currentTarget = Mathf.Lerp(startScale, targetScale, t);
+            float scaleRatio = currentTarget / startScale;
+
+            arObject.transform.localScale = Vector3.one * currentTarget;
+            arObject.transform.position = anchorPoint + initialOffset * scaleRatio;
+
+            yield return null;
+        }
+
+        if (arObject != null)
+        {
+            float scaleRatio = targetScale / startScale;
+            arObject.transform.localScale = Vector3.one * targetScale;
+            arObject.transform.position = anchorPoint + initialOffset * scaleRatio;
+
+            ArtworkProperties props = arObject.GetComponent<ArtworkProperties>();
+            if (props != null)
+            {
+                props.currentGeneralPreset = targetPreset;
+            }
+            OnGeneralPresetChanged?.Invoke(targetPreset);
+        }
+
+        activeSnapCoroutine = null;
+    }
+
     public ArtworkSizePreset GetCurrentPreset()
     {
         if (ScreenRayInteractor.Instance != null && ScreenRayInteractor.Instance.currentSelectedObject != null)
@@ -333,5 +487,21 @@ public class ArtworkSizeManager : MonoBehaviour
             return GetNearestPreset(x);
         }
         return ArtworkSizePreset.A3;
+    }
+
+    public GeneralSizePreset GetCurrentGeneralPreset()
+    {
+        if (ScreenRayInteractor.Instance != null && ScreenRayInteractor.Instance.currentSelectedObject != null)
+        {
+            ArtworkProperties props = ScreenRayInteractor.Instance.currentSelectedObject.GetComponent<ArtworkProperties>();
+            if (props != null)
+            {
+                return props.currentGeneralPreset;
+            }
+
+            float x = ScreenRayInteractor.Instance.currentSelectedObject.transform.localScale.x;
+            return GetNearestGeneralPreset(x);
+        }
+        return GeneralSizePreset.Medium;
     }
 }

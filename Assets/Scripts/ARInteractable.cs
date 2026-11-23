@@ -23,29 +23,21 @@ public class ARInteractable : MonoBehaviour
         string outlineMatName = ScreenRayInteractor.Instance.outlineMaterial.name;
 
         foreach (var renderer in GetComponentsInChildren<Renderer>()) {
-            if (isEmission) {
-                Material[] originalMaterials = renderer.materials;
-                // If outline material is already present at the end, avoid duplicate addition
-                if (originalMaterials.Length > 0 && originalMaterials[originalMaterials.Length - 1].name.StartsWith(outlineMatName)) {
-                    continue;
-                }
-                Material[] materialsWithOutline = new Material[originalMaterials.Length + 1];
-                for (int i = 0; i < originalMaterials.Length; i++) {
-                    materialsWithOutline[i] = originalMaterials[i];
-                }
-                materialsWithOutline[originalMaterials.Length] = ScreenRayInteractor.Instance.outlineMaterial;
-                renderer.materials = materialsWithOutline;
-            } else {
-                Material[] originalMaterials = renderer.materials;
-                // Only strip if outline material is actually attached
-                if (originalMaterials.Length > 1 && originalMaterials[originalMaterials.Length - 1].name.StartsWith(outlineMatName)) {
-                    Material[] materialsWithoutOutline = new Material[originalMaterials.Length - 1];
-                    for (int i = 0; i < originalMaterials.Length - 1; i++) {
-                        materialsWithoutOutline[i] = originalMaterials[i];
-                    }
-                    renderer.materials = materialsWithoutOutline;
+            Material[] currentMaterials = renderer.materials;
+            List<Material> cleanedMaterials = new List<Material>();
+
+            // Completely strip any existing outline material instances
+            for (int i = 0; i < currentMaterials.Length; i++) {
+                if (currentMaterials[i] != null && !currentMaterials[i].name.StartsWith(outlineMatName)) {
+                    cleanedMaterials.Add(currentMaterials[i]);
                 }
             }
+
+            if (isEmission) {
+                cleanedMaterials.Add(ScreenRayInteractor.Instance.outlineMaterial);
+            }
+
+            renderer.materials = cleanedMaterials.ToArray();
         }
     }
     // Start is called before the first frame update

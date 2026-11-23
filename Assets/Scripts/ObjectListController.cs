@@ -37,9 +37,35 @@ public class ObjectListController : MonoBehaviour
         ScreenRayInteractor.Instance.isSpawnerActivated = false;
         screenHeight = Screen.height;
         screenWidth = Screen.width;
+
+        // Ensure Viewport rect stretches properly to parent bounds
+        if (itemList != null)
+        {
+            ScrollRect sr = itemList.GetComponent<ScrollRect>();
+            if (sr != null && sr.viewport != null)
+            {
+                sr.viewport.anchorMin = Vector2.zero;
+                sr.viewport.anchorMax = Vector2.one;
+                sr.viewport.sizeDelta = Vector2.zero;
+                sr.viewport.anchoredPosition = Vector2.zero;
+            }
+        }
+
+        // Ensure HorizontalLayoutGroup has clean padding and alignment
+        if (buttonsContent != null)
+        {
+            HorizontalLayoutGroup hlg = buttonsContent.GetComponent<HorizontalLayoutGroup>();
+            if (hlg != null)
+            {
+                hlg.padding = new RectOffset(15, 15, 15, 15);
+                hlg.spacing = 20f;
+                hlg.childAlignment = TextAnchor.MiddleCenter;
+            }
+        }
+
         float h = (itemList != null && itemList.rect.height > 0) ? itemList.rect.height : 360f;
         closedPosition = -h / 2f;
-        openPosition = h / 2f;
+        openPosition = h / 2f + 15f; // Lift slightly above bottom edge for clean margin
         itemListController.anchoredPosition = new Vector2(0, closedPosition);
         RegisterAllButtons();
     }
@@ -50,12 +76,41 @@ public class ObjectListController : MonoBehaviour
 
     public void RegisterAllButtons() {
         buttons.Clear();
+
+        // Ensure no buttons have leftover "Starry" labels or distorted aspect ratios
         for (int i = 0; i < buttonsContent.transform.childCount; i++) {
             GameObject child = buttonsContent.transform.GetChild(i).gameObject;
+
+            // Remove or disable any "ArtworkLabel" or "Starry" text
+            Transform label = child.transform.Find("ArtworkLabel");
+            if (label != null) {
+                label.gameObject.SetActive(false);
+            }
+            foreach (var tmp in child.GetComponentsInChildren<TMPro.TextMeshProUGUI>(true)) {
+                if (child.name != "AddPosterButton" && tmp.text.IndexOf("starry", System.StringComparison.OrdinalIgnoreCase) >= 0) {
+                    tmp.gameObject.SetActive(false);
+                }
+            }
+            foreach (var txt in child.GetComponentsInChildren<Text>(true)) {
+                if (child.name != "AddPosterButton" && txt.text.IndexOf("starry", System.StringComparison.OrdinalIgnoreCase) >= 0) {
+                    txt.gameObject.SetActive(false);
+                }
+            }
+
             UISelectionButton selectBtn = child.GetComponent<UISelectionButton>();
             if (selectBtn == null) {
                 // Non-artwork child (e.g. '+' AddPosterButton) - skip artwork registration
                 continue;
+            }
+
+            // Ensure artwork thumbnail preserves aspect ratio without stretching
+            Image img = child.GetComponent<Image>();
+            if (img != null) {
+                img.preserveAspect = true;
+            }
+            RectTransform childRt = child.GetComponent<RectTransform>();
+            if (childRt != null) {
+                childRt.sizeDelta = new Vector2(220f, 0f);
             }
 
             int artworkIndex = buttons.Count;
@@ -77,10 +132,10 @@ public class ObjectListController : MonoBehaviour
             for (int i = 0; i < buttonsContent.transform.childCount; i++) {
                 RectTransform rt = buttonsContent.transform.GetChild(i).GetComponent<RectTransform>();
                 if (rt != null) {
-                    totalWidth += (rt.rect.width > 0 ? rt.rect.width : 360f);
+                    totalWidth += (rt.sizeDelta.x > 0 ? rt.sizeDelta.x : 220f) + 20f;
                 }
             }
-            buttonsContent.GetComponent<RectTransform>().sizeDelta = new Vector2(totalWidth + 100f, buttonsContent.GetComponent<RectTransform>().rect.height);
+            buttonsContent.GetComponent<RectTransform>().sizeDelta = new Vector2(totalWidth + 120f, buttonsContent.GetComponent<RectTransform>().rect.height);
         }
     }
 

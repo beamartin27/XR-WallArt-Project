@@ -112,7 +112,7 @@ public class CustomPosterManager : MonoBehaviour
         plusDrawerButton = plusBtnObj;
 
         RectTransform rt = plusBtnObj.GetComponent<RectTransform>();
-        rt.sizeDelta = new Vector2(200f, 0f);
+        rt.sizeDelta = new Vector2(170f, 0f);
 
         Image img = plusBtnObj.GetComponent<Image>();
         img.color = new Color(0.12f, 0.16f, 0.22f, 0.95f);
@@ -129,8 +129,8 @@ public class CustomPosterManager : MonoBehaviour
         textRt.sizeDelta = Vector2.zero;
 
         TextMeshProUGUI tmp = textObj.GetComponent<TextMeshProUGUI>();
-        tmp.text = "+ Add\nPoster";
-        tmp.fontSize = 28;
+        tmp.text = "+\nAdd Poster";
+        tmp.fontSize = 24;
         tmp.alignment = TextAlignmentOptions.Center;
         tmp.color = new Color(0.35f, 0.85f, 0.65f, 1f); // fresh mint accent
         tmp.fontStyle = FontStyles.Bold;
@@ -215,22 +215,22 @@ public class CustomPosterManager : MonoBehaviour
         customObj.transform.SetParent(transform, false);
         customObj.SetActive(false);
 
-        // Aspect ratio: width / height
-        float aspect = (float)texture.width / (float)texture.height;
+        // Aspect ratio: longer side matches ISO A3 baseline (0.420m).
+        // Shorter side scales proportionally so the image is never stretched or distorted.
+        float longerSide = 0.420f;
         float canvasWidth, canvasHeight;
 
-        // Base A3 baseline: 0.297m x 0.420m
-        if (aspect <= 1.0f)
+        if (texture.width >= texture.height)
         {
-            // Portrait or square
-            canvasHeight = 0.420f;
-            canvasWidth = Mathf.Clamp(canvasHeight * aspect, 0.15f, 0.60f);
+            // Landscape or square: width is the longer side (0.420m)
+            canvasWidth = longerSide;
+            canvasHeight = longerSide * ((float)texture.height / (float)texture.width);
         }
         else
         {
-            // Landscape
-            canvasWidth = 0.420f;
-            canvasHeight = Mathf.Clamp(canvasWidth / aspect, 0.15f, 0.60f);
+            // Portrait: height is the longer side (0.420m)
+            canvasHeight = longerSide;
+            canvasWidth = longerSide * ((float)texture.width / (float)texture.height);
         }
 
         // Configure ArtworkCanvas
@@ -281,10 +281,11 @@ public class CustomPosterManager : MonoBehaviour
             props = customObj.AddComponent<ArtworkProperties>();
         }
         props.currentPreset = ArtworkSizePreset.A3;
+        props.currentGeneralPreset = GeneralSizePreset.Medium;
         props.baseDimensionsMeters = new Vector2(canvasWidth, canvasHeight);
         props.artworkTitle = title;
         props.artist = "Custom Artwork";
-        props.currentOrientation = (aspect > 1.0f) ? ArtworkOrientation.Landscape : ArtworkOrientation.Portrait;
+        props.currentOrientation = (canvasWidth > canvasHeight) ? ArtworkOrientation.Landscape : ArtworkOrientation.Portrait;
 
         return customObj;
     }
@@ -314,15 +315,34 @@ public class CustomPosterManager : MonoBehaviour
         if (templateButton != null)
         {
             newBtn = Instantiate(templateButton, content);
+
+            // Strip any text components or labels from cloned button so no custom button ever displays "Starry"
+            foreach (var tmpTxt in newBtn.GetComponentsInChildren<TextMeshProUGUI>(true))
+            {
+                Destroy(tmpTxt.gameObject);
+            }
+            foreach (var legTxt in newBtn.GetComponentsInChildren<Text>(true))
+            {
+                Destroy(legTxt.gameObject);
+            }
+            Transform lbl = newBtn.transform.Find("ArtworkLabel");
+            if (lbl != null)
+            {
+                Destroy(lbl.gameObject);
+            }
         }
         else
         {
             newBtn = new GameObject("Button_" + title, typeof(RectTransform), typeof(CanvasRenderer), typeof(Image), typeof(Button), typeof(UISelectionButton));
             newBtn.transform.SetParent(content, false);
-            newBtn.GetComponent<RectTransform>().sizeDelta = new Vector2(360f, 0f);
         }
 
         newBtn.name = "Button_Custom_" + title;
+        RectTransform btnRt = newBtn.GetComponent<RectTransform>();
+        if (btnRt != null)
+        {
+            btnRt.sizeDelta = new Vector2(220f, 0f);
+        }
 
         // Insert at start of artwork list (index 1 is right after '+' button; if '+' not present, index 0)
         int insertIndex = (plusDrawerButton != null && plusDrawerButton.transform.parent == content) ? 1 : 0;
