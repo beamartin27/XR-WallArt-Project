@@ -564,7 +564,7 @@ public class WallArtUIController : MonoBehaviour
     public void UpdateGeneralSizeButtonsHighlight(GeneralSizePreset activePreset)
     {
         Color normalBg = new Color(0.18f, 0.20f, 0.25f, 0.95f);
-        Color activeBg = new Color(0.16f, 0.65f, 0.42f, 1.0f); // vibrant emerald green
+        Color activeBg = new Color(0.20f, 0.50f, 0.85f, 1.0f); // crisp modern blue
         Color normalText = new Color(0.85f, 0.85f, 0.85f, 1.0f);
         Color activeText = Color.white;
 
@@ -576,7 +576,7 @@ public class WallArtUIController : MonoBehaviour
     public void UpdateSizeButtonsHighlight(ArtworkSizePreset activePreset)
     {
         Color normalBg = new Color(0.18f, 0.20f, 0.25f, 0.95f);
-        Color activeBg = new Color(0.16f, 0.65f, 0.42f, 1.0f); // vibrant emerald green
+        Color activeBg = new Color(0.20f, 0.50f, 0.85f, 1.0f); // crisp modern blue
         Color normalText = new Color(0.85f, 0.85f, 0.85f, 1.0f);
         Color activeText = Color.white;
 
