@@ -95,9 +95,6 @@ public class WallArtUIController : MonoBehaviour
             rotateNavButton.SetActive(false);
         }
 
-        // Initialize CustomPosterManager to ensure startup upload dialog and '+' drawer button
-        if (CustomPosterManager.Instance != null) { }
-
         // Configure smaller button scales, size presets (A5..A1), and orientation toggles (Portrait/Landscape)
         EnsureSizePresetsAndOrientationButtons();
 
