@@ -67,20 +67,34 @@ public class AssignmentScript : Singleton<AssignmentScript> {
     // Task 2: Geometric Registration
 
     public void GeometricRegistration(GameObject arObject, Vector3 hitPoint, GameObject arPlane) {
-        ARInteractable interactable = arObject.GetComponent<ARInteractable>();
-
-        if (interactable == null || arPlane == null)
+        if (arPlane == null)
         {
             return;
         }
+
+        // Normal of the detected AR plane in world space
+        GeometricRegistration(arObject, hitPoint, arPlane.transform.up.normalized, arPlane);
+    }
+
+    /// <summary>
+    /// Registers the object against a wall given by a point and a normal. <paramref name="arPlane"/>
+    /// may be null when the wall comes from an estimated surface rather than a detected plane
+    /// (see <see cref="WallDetection"/>).
+    /// </summary>
+    public void GeometricRegistration(GameObject arObject, Vector3 hitPoint, Vector3 planeNormal, GameObject arPlane) {
+        ARInteractable interactable = arObject.GetComponent<ARInteractable>();
+
+        if (interactable == null || planeNormal.sqrMagnitude < 1e-6f)
+        {
+            return;
+        }
+
+        planeNormal.Normalize();
 
         // Virtual object's plane definition in local/object space
         Vector3 objectAnchor = interactable.AnchorPointOfObject;
 
         Vector3 objectNormal = interactable.NormalDirectionOfObject.normalized;
-
-        // Normal of the detected AR plane in world space
-        Vector3 planeNormal = arPlane.transform.up.normalized;
 
         // Rotate the object so its normal matches the wall normal while keeping it upright.
         // (FromToRotation alone leaves the roll around the normal undefined: when the two

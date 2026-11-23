@@ -26,6 +26,42 @@ public class ObjectListController : MonoBehaviour
     public bool IsDrawerOpen => isDrawerOpen;
     private float lastToggleTime = 0f;
 
+    // Tiles that pick an artwork (parallel to "buttons"; null for other tiles such as "Add photo")
+    private List<Image> selectableImages = new List<Image>();
+
+    // Extra travel so the open drawer clears the phone's home indicator, and so the closed
+    // drawer (including any backdrop that sticks out above the list) is fully off screen.
+    private float bottomInset = 0f;
+    private float hiddenExtra = 0f;
+    private bool positionsReady = false;
+
+    /// <summary>Tiles not chosen are dimmed to this colour while one is armed for placement.</summary>
+    public static readonly Color DimmedTile = new Color(0.45f, 0.45f, 0.45f, 1f);
+
+    /// <summary>Canvas-space y of the top edge of the artwork list (0 = bottom of the screen).</summary>
+    public float ListTopY {
+        get {
+            float h = (itemList != null && itemList.rect.height > 0) ? itemList.rect.height : 360f;
+            return itemListController.anchoredPosition.y + h / 2f;
+        }
+    }
+
+    public void SetInsets(float bottomInset, float hiddenExtra) {
+        this.bottomInset = Mathf.Max(0f, bottomInset);
+        this.hiddenExtra = Mathf.Max(0f, hiddenExtra);
+        if (positionsReady) {
+            ComputePositions();
+            itemListController.anchoredPosition = new Vector2(0, isDrawerOpen ? openPosition : closedPosition);
+        }
+    }
+
+    private void ComputePositions() {
+        float h = (itemList != null && itemList.rect.height > 0) ? itemList.rect.height : 360f;
+        closedPosition = -h / 2f - hiddenExtra;
+        openPosition = h / 2f + bottomInset;
+        positionsReady = true;
+    }
+
     void Awake()
     {
         Instance = this;
@@ -37,52 +73,52 @@ public class ObjectListController : MonoBehaviour
         ScreenRayInteractor.Instance.isSpawnerActivated = false;
         screenHeight = Screen.height;
         screenWidth = Screen.width;
-        float h = (itemList != null && itemList.rect.height > 0) ? itemList.rect.height : 360f;
-        closedPosition = -h / 2f;
-        openPosition = h / 2f;
+        ComputePositions();
         itemListController.anchoredPosition = new Vector2(0, closedPosition);
         RegisterAllButtons();
     }
 
     public void RegisterAllButtons() {
         buttons.Clear();
+        selectableImages.Clear();
+        float contentWidth = 0f;
+        int visibleCount = 0;
         for (int i = 0; i < buttonsContent.transform.childCount; i++) {
-            int buttonIndex = i;
             GameObject button = buttonsContent.transform.GetChild(i).gameObject;
             UISelectionButton selectBtn = button.GetComponent<UISelectionButton>();
+
+            // Only artwork tiles are wired here; other tiles (e.g. "Add photo") manage themselves
             if (selectBtn != null) {
                 selectBtn.objectListController = this;
-            }
-
-            Button btn = button.GetComponent<Button>();
-            if (btn != null) {
-                btn.onClick.RemoveAllListeners();
-                btn.onClick.AddListener(() => {
-                    if (selectBtn != null) {
-                        selectBtn.SetTargetPrefab(buttonIndex);
-                    }
-                });
+                Button btn = button.GetComponent<Button>();
+                if (btn != null) {
+                    btn.onClick.RemoveAllListeners();
+                    btn.onClick.AddListener(selectBtn.SelectArtwork);
+                }
             }
 
             buttons.Add(button);
+            selectableImages.Add(selectBtn != null ? button.GetComponent<Image>() : null);
+            if (button.activeSelf) {
+                contentWidth += button.GetComponent<RectTransform>().rect.width;
+                visibleCount++;
+            }
         }
         if (buttons.Count > 0) {
-            float buttonWidth = buttons[0].GetComponent<RectTransform>().rect.width;
-            float contentWidth = buttonWidth * buttons.Count;
-            buttonsContent.GetComponent<RectTransform>().sizeDelta = new Vector2(contentWidth, buttonsContent.GetComponent<RectTransform>().rect.height);
+            HorizontalLayoutGroup layout = buttonsContent.GetComponent<HorizontalLayoutGroup>();
+            if (layout != null) {
+                contentWidth += layout.padding.left + layout.padding.right + layout.spacing * Mathf.Max(0, visibleCount - 1);
+            }
+            RectTransform contentRect = buttonsContent.GetComponent<RectTransform>();
+            contentRect.sizeDelta = new Vector2(contentWidth, contentRect.sizeDelta.y);
         }
     }
 
     public void ClearSelectionHighlight() {
         currentSelectedIndex = -1;
-        if (buttons != null) {
-            foreach (var button in buttons) {
-                if (button != null) {
-                    Image img = button.GetComponent<Image>();
-                    if (img != null) {
-                        img.color = Color.white;
-                    }
-                }
+        foreach (Image img in selectableImages) {
+            if (img != null) {
+                img.color = Color.white;
             }
         }
     }
@@ -90,7 +126,9 @@ public class ObjectListController : MonoBehaviour
     IEnumerator MoveItemList(float startPosition, float endPosition, System.Action onComplete = null) {
         float elapsedTime = 0;
         while (elapsedTime < animationDuration) {
-            itemListController.anchoredPosition = new Vector2(0, Mathf.Lerp(startPosition, endPosition, elapsedTime / animationDuration));
+            // Ease out: fast at first, settling gently
+            float t = 1f - Mathf.Pow(1f - Mathf.Clamp01(elapsedTime / animationDuration), 3f);
+            itemListController.anchoredPosition = new Vector2(0, Mathf.Lerp(startPosition, endPosition, t));
             elapsedTime += Time.deltaTime;
             yield return null;
         }
@@ -101,24 +139,15 @@ public class ObjectListController : MonoBehaviour
     // Update is called once per frame
     void Update()
     {
-        if (currentSelectedIndex >= 0 && currentSelectedIndex < buttons.Count) {
-            for (int i = 0; i < buttons.Count; i++) {
-                if (buttons[i] != null) {
-                    Image img = buttons[i].GetComponent<Image>();
-                    if (img != null) {
-                        img.color = (i == currentSelectedIndex) ? Color.green : Color.white;
-                    }
-                }
-            }
-        } else {
-            foreach (var button in buttons) {
-                if (button != null) {
-                    Image img = button.GetComponent<Image>();
-                    if (img != null) {
-                        img.color = Color.white;
-                    }
-                }
-            }
+        // The tile armed for placement stays bright; the others dim so the choice is obvious
+        // (tinting the tile itself would discolour the user's photos).
+        bool anySelected = currentSelectedIndex >= 0 && currentSelectedIndex < selectableImages.Count
+            && selectableImages[currentSelectedIndex] != null;
+        for (int i = 0; i < selectableImages.Count; i++) {
+            Image img = selectableImages[i];
+            if (img == null) continue;
+            Color target = (!anySelected || i == currentSelectedIndex) ? Color.white : DimmedTile;
+            if (img.color != target) img.color = target;
         }
     }
     public void EnableItemList() {
