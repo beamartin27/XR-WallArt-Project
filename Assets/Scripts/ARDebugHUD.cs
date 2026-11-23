@@ -6,7 +6,8 @@ using UnityEngine.XR.ARSubsystems;
 using TrackedPoseDriver = UnityEngine.InputSystem.XR.TrackedPoseDriver;
 
 /// <summary>
-/// On-screen AR diagnostics panel (tap to collapse/expand). Shows whether the virtual camera's
+/// On-screen AR diagnostics panel. It starts collapsed as a small "AR debug" chip in the top-right
+/// corner so it stays out of the user's way; tap the chip to expand it, tap again to collapse. Shows whether the virtual camera's
 /// orientation matches the real phone (camera roll vs world up), the state of
 /// <see cref="ARCameraOrientationFix"/>, which input device drives the camera pose,
 /// and what planes have been detected. Useful as evidence when validating tracking.
@@ -17,7 +18,7 @@ public class ARDebugHUD : MonoBehaviour
     readonly StringBuilder m_Text = new StringBuilder();
     GUIStyle m_Style;
     float m_NextUpdate;
-    bool m_Visible = true;
+    bool m_Visible = false;
 
     [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.AfterSceneLoad)]
     static void Create()
@@ -93,6 +94,8 @@ public class ARDebugHUD : MonoBehaviour
         }
         m_Text.AppendLine($"Planes  vertical: {vertical}  horizontal: {horizontal}  other: {other}");
         m_Text.AppendLine($"Wall normals off-horizontal (max): {worstWallTilt:0}°");
+        // Which of WallDetection's sources answered the last wall raycast (plane / extended plane / estimated surface)
+        m_Text.AppendLine($"Last wall hit: {WallDetection.LastSource}");
         m_Text.Append("(tap here to hide)");
     }
 
@@ -108,9 +111,13 @@ public class ARDebugHUD : MonoBehaviour
             };
             m_Style.normal.textColor = Color.yellow;
         }
-        float w = Screen.width * 0.94f;
-        var rect = new Rect(Screen.width * 0.03f, Screen.height * 0.06f, w, m_Visible ? Screen.height * 0.24f : Screen.height * 0.03f);
-        if (GUI.Button(rect, m_Visible ? m_Text.ToString() : "AR debug (tap to show)", m_Style))
+        // Keep clear of the notch / Dynamic Island
+        float top = Mathf.Max(Screen.height - Screen.safeArea.yMax, Screen.height * 0.01f);
+        Rect rect = m_Visible
+            ? new Rect(Screen.width * 0.03f, top + Screen.height * 0.06f, Screen.width * 0.94f, Screen.height * 0.26f)
+            : new Rect(Screen.width * 0.76f, top, Screen.width * 0.21f, Screen.height * 0.024f);
+        m_Style.alignment = m_Visible ? TextAnchor.UpperLeft : TextAnchor.MiddleCenter;
+        if (GUI.Button(rect, m_Visible ? m_Text.ToString() : "AR debug", m_Style))
             m_Visible = !m_Visible;
     }
 }

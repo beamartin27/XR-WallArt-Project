@@ -64,6 +64,9 @@ public class ArtworkSizeManager : MonoBehaviour
 
     private Coroutine activeSnapCoroutine = null;
 
+    /// <summary>True while an artwork is animating to its snapped size.</summary>
+    public bool IsSnapping => activeSnapCoroutine != null;
+
     private void Awake()
     {
         if (_instance == null)
