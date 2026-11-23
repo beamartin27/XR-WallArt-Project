@@ -94,6 +94,7 @@ public class ScreenRayInteractor : Singleton<ScreenRayInteractor>
 
         // Instantiate new artwork at the exact same position, rotation, and scale
         GameObject newObj = Instantiate(newPrefab, pos, rot);
+        newObj.SetActive(true);
         newObj.transform.localScale = scale;
 
         ArtworkProperties newProps = newObj.GetComponent<ArtworkProperties>();

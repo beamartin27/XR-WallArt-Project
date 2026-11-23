@@ -66,7 +66,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: f67da14d9dae43d199a1cd21d5fd94a6, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::ArtworkProperties
-  currentPreset: 1
+  currentPreset: 2
   baseDimensionsMeters: {x: 0.297, y: 0.420}
   artworkTitle: Nordic Geometry
   artist: Studio Art

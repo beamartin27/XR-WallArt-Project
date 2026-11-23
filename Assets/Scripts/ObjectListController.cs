@@ -44,32 +44,43 @@ public class ObjectListController : MonoBehaviour
         RegisterAllButtons();
     }
 
+    public int GetArtworkButtonIndex(GameObject btnObject) {
+        return buttons.IndexOf(btnObject);
+    }
+
     public void RegisterAllButtons() {
         buttons.Clear();
         for (int i = 0; i < buttonsContent.transform.childCount; i++) {
-            int buttonIndex = i;
-            GameObject button = buttonsContent.transform.GetChild(i).gameObject;
-            UISelectionButton selectBtn = button.GetComponent<UISelectionButton>();
-            if (selectBtn != null) {
-                selectBtn.objectListController = this;
+            GameObject child = buttonsContent.transform.GetChild(i).gameObject;
+            UISelectionButton selectBtn = child.GetComponent<UISelectionButton>();
+            if (selectBtn == null) {
+                // Non-artwork child (e.g. '+' AddPosterButton) - skip artwork registration
+                continue;
             }
 
-            Button btn = button.GetComponent<Button>();
+            int artworkIndex = buttons.Count;
+            selectBtn.objectListController = this;
+
+            Button btn = child.GetComponent<Button>();
             if (btn != null) {
                 btn.onClick.RemoveAllListeners();
                 btn.onClick.AddListener(() => {
-                    if (selectBtn != null) {
-                        selectBtn.SetTargetPrefab(buttonIndex);
-                    }
+                    selectBtn.SetTargetPrefab(artworkIndex);
                 });
             }
 
-            buttons.Add(button);
+            buttons.Add(child);
         }
-        if (buttons.Count > 0) {
-            float buttonWidth = buttons[0].GetComponent<RectTransform>().rect.width;
-            float contentWidth = buttonWidth * buttons.Count;
-            buttonsContent.GetComponent<RectTransform>().sizeDelta = new Vector2(contentWidth, buttonsContent.GetComponent<RectTransform>().rect.height);
+
+        if (buttonsContent.transform.childCount > 0) {
+            float totalWidth = 0f;
+            for (int i = 0; i < buttonsContent.transform.childCount; i++) {
+                RectTransform rt = buttonsContent.transform.GetChild(i).GetComponent<RectTransform>();
+                if (rt != null) {
+                    totalWidth += (rt.rect.width > 0 ? rt.rect.width : 360f);
+                }
+            }
+            buttonsContent.GetComponent<RectTransform>().sizeDelta = new Vector2(totalWidth + 100f, buttonsContent.GetComponent<RectTransform>().rect.height);
         }
     }
 

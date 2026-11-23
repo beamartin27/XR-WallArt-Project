@@ -17,13 +17,23 @@ public class UISelectionButton : MonoBehaviour, IPointerDownHandler, IBeginDragH
         parentScrollRect = GetComponentInParent<ScrollRect>();
     }
 
+    private int GetArtworkIndex()
+    {
+        if (objectListController != null)
+        {
+            int idx = objectListController.GetArtworkButtonIndex(gameObject);
+            if (idx >= 0) return idx;
+        }
+        return transform.GetSiblingIndex();
+    }
+
     /// <summary>
     /// When the user presses down on an artwork thumbnail, immediately arm the spawner,
     /// highlight the thumbnail, and prepare for instant drag onto the wall.
     /// </summary>
     public void OnPointerDown(PointerEventData eventData)
     {
-        int index = transform.GetSiblingIndex();
+        int index = GetArtworkIndex();
 
         // If an artwork is currently selected on the wall, replace it immediately
         if (ScreenRayInteractor.Instance != null && ScreenRayInteractor.Instance.currentSelectedObject != null)
@@ -144,13 +154,13 @@ public class UISelectionButton : MonoBehaviour, IPointerDownHandler, IBeginDragH
     /// </summary>
     public void SelectArtwork()
     {
-        int index = transform.GetSiblingIndex();
+        int index = GetArtworkIndex();
         SetTargetPrefab(index);
     }
 
     public void SetTargetPrefab(int i)
     {
-        int index = (i >= 0) ? i : transform.GetSiblingIndex();
+        int index = (i >= 0) ? i : GetArtworkIndex();
 
         if (ScreenRayInteractor.Instance != null)
         {
