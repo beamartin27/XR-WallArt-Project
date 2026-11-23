@@ -26,8 +26,7 @@ public class ScreenRayInteractor : Singleton<ScreenRayInteractor>
 
     [Header("Placement Preview")]
     public GameObject previewInstance = null;
-    private GameObject previewPlane = null;
-    private Vector3? previewHitPosition = null;
+    private WallHit previewHit;
     public bool isPreviewActive = false;
 
     public float spawnLockTime = 0.3f;
@@ -52,14 +51,16 @@ public class ScreenRayInteractor : Singleton<ScreenRayInteractor>
             previewInstance = null;
         }
         isPreviewActive = false;
-        previewPlane = null;
-        previewHitPosition = null;
+        previewHit = default;
     }
 
     public void SetSelection(ARInteractable target) {
+        if (target == null) return;
+        bool changed = currentSelectedObject != target;
         ClearSelection();
         currentSelectedObject = target;
         currentSelectedObject.SetSelfEmission(true);
+        if (changed) Haptics.Light();
     }
 
     public void DeleteSelection() {
@@ -83,6 +84,9 @@ public class ScreenRayInteractor : Singleton<ScreenRayInteractor>
         Vector3 normal = currentSelectedObject.currentNormalDirectionInWorld;
         string oldName = currentSelectedObject.objectName;
 
+        ArtworkFrame oldFrame = currentSelectedObject.GetComponent<ArtworkFrame>();
+        FrameStyle frameStyle = oldFrame != null ? oldFrame.Style : ArtworkFrame.DefaultStyle;
+
         ArtworkProperties oldProps = currentSelectedObject.GetComponent<ArtworkProperties>();
         ArtworkSizePreset oldPreset = oldProps != null ? oldProps.currentPreset : ArtworkSizeManager.Instance.GetNearestPreset(scale.x);
 
@@ -94,7 +98,13 @@ public class ScreenRayInteractor : Singleton<ScreenRayInteractor>
 
         // Instantiate new artwork at the exact same position, rotation, and scale
         GameObject newObj = Instantiate(newPrefab, pos, rot);
+        newObj.SetActive(true);
         newObj.transform.localScale = scale;
+
+        // The new picture keeps the frame the old one had
+        if (ArtworkFrame.CanFrame(newObj)) {
+            ArtworkFrame.GetOrAdd(newObj).Apply(frameStyle);
+        }
 
         ArtworkProperties newProps = newObj.GetComponent<ArtworkProperties>();
         if (newProps != null) {
@@ -110,6 +120,8 @@ public class ScreenRayInteractor : Singleton<ScreenRayInteractor>
             newInteractable.currentNormalDirectionInWorld = normal;
             newInteractable.currentARPlane = plane;
             arObjects.Add(instanceName);
+            newObj.name = instanceName;
+            if (newObj.GetComponent<WallAttachment>() == null) newObj.AddComponent<WallAttachment>();
             SetSelection(newInteractable);
         }
     }
@@ -141,11 +153,9 @@ public class ScreenRayInteractor : Singleton<ScreenRayInteractor>
         if (Physics.Raycast(primaryTouchRay, out hit)) {
             ARInteractable interactable = FindInteractableRecursivelyUp(hit.collider);
             if (interactable == currentSelectedObject) {
-                GameObject currentHitPlane = null;
-                Vector3? currentHitPosition = null;
-                (currentHitPlane, currentHitPosition) = AssignmentScript.Instance.RaycastDetectionForARPlane(TouchScreenInputManager.Instance.primaryTouchPosition);
-                if (currentHitPlane != null) {
-                    draggingStartWorldPosition = currentHitPosition;
+                WallHit startHit = WallDetection.Raycast(TouchScreenInputManager.Instance.primaryTouchPosition, mainCamera);
+                if (startHit.valid) {
+                    draggingStartWorldPosition = startHit.point;
                     objectStartPosition = interactable.currentAnchorPointInWorld;
                     isDragging = true;
                     dragLockTimer = dragLockTime;
@@ -193,12 +203,18 @@ public class ScreenRayInteractor : Singleton<ScreenRayInteractor>
             return;
         }
 
-        var (hitPlane, hitPosition) = AssignmentScript.Instance.RaycastDetectionForARPlane(dragScreenPos);
+        WallHit hit = WallDetection.Raycast(dragScreenPos, mainCamera);
 
-        if (hitPlane != null && hitPosition.HasValue) {
+        if (hit.valid) {
             if (previewInstance == null) {
-                previewInstance = Instantiate(currentChosenPrefab, hitPosition.Value, Quaternion.identity);
+                previewInstance = Instantiate(currentChosenPrefab, hit.point, Quaternion.identity);
+                previewInstance.SetActive(true);
                 previewInstance.name = "Artwork_Preview";
+
+                // New pictures get the frame the user last chose
+                if (ArtworkFrame.CanFrame(previewInstance)) {
+                    ArtworkFrame.GetOrAdd(previewInstance).Apply(ArtworkFrame.DefaultStyle);
+                }
 
                 // Disable colliders on the preview so it doesn't block rays or trigger physics
                 foreach (var col in previewInstance.GetComponentsInChildren<Collider>()) {
@@ -215,24 +231,23 @@ public class ScreenRayInteractor : Singleton<ScreenRayInteractor>
             }
 
             // Smoothly update registration and position flush against the detected wall
-            AssignmentScript.Instance.GeometricRegistration(previewInstance, hitPosition.Value, hitPlane);
+            AssignmentScript.Instance.GeometricRegistration(previewInstance, hit.point, hit.normal, hit.plane);
             previewInstance.SetActive(true);
-            previewPlane = hitPlane;
-            previewHitPosition = hitPosition.Value;
+            previewHit = hit;
         }
     }
 
     private void SolidifyPlacementPreview() {
-        if (previewInstance != null && previewHitPosition.HasValue && previewPlane != null) {
+        if (previewInstance != null && previewHit.valid) {
             GameObject finalObject = previewInstance;
-            Vector3 finalPos = previewHitPosition.Value;
-            GameObject finalPlane = previewPlane;
+            Vector3 finalPos = previewHit.point;
+            Vector3 finalNormal = previewHit.normal;
+            GameObject finalPlane = previewHit.plane; // null when hung on an estimated surface
 
             // Null out preview references FIRST so no cleanup routine or selection change can touch finalObject
             previewInstance = null;
             isPreviewActive = false;
-            previewPlane = null;
-            previewHitPosition = null;
+            previewHit = default;
             currentChosenPrefab = null;
             isSpawnerActivated = false;
 
@@ -244,7 +259,7 @@ public class ScreenRayInteractor : Singleton<ScreenRayInteractor>
             }
 
             // Firmly lock geometric registration at the release point on the wall
-            AssignmentScript.Instance.GeometricRegistration(finalObject, finalPos, finalPlane);
+            AssignmentScript.Instance.GeometricRegistration(finalObject, finalPos, finalNormal, finalPlane);
 
             ARInteractable interactable = finalObject.GetComponent<ARInteractable>();
             if (interactable != null) {
@@ -256,10 +271,13 @@ public class ScreenRayInteractor : Singleton<ScreenRayInteractor>
                 string instanceName = baseName + "_" + finalObject.GetInstanceID();
                 interactable.objectName = instanceName;
                 interactable.currentAnchorPointInWorld = finalPos;
-                interactable.currentNormalDirectionInWorld = finalPlane.transform.up.normalized;
+                interactable.currentNormalDirectionInWorld = finalNormal;
                 interactable.currentARPlane = finalPlane;
                 arObjects.Add(instanceName);
                 finalObject.name = instanceName;
+
+                // Keep it flush with the wall as the device refines where the wall is
+                if (finalObject.GetComponent<WallAttachment>() == null) finalObject.AddComponent<WallAttachment>();
 
                 // Select the newly placed artwork (turns on emission outline)
                 SetSelection(interactable);
@@ -267,6 +285,8 @@ public class ScreenRayInteractor : Singleton<ScreenRayInteractor>
 
             // Tactile bounce pop animation on solidification
             StartCoroutine(SolidifyPopAnimation(finalObject.transform));
+            Haptics.Medium();
+            if (WallArtCoach.Instance != null) WallArtCoach.Instance.NotifyPlaced();
 
             // Clear the selection highlight on the Art button in the drawer!
             if (ObjectListController.Instance != null) {
@@ -316,34 +336,29 @@ public class ScreenRayInteractor : Singleton<ScreenRayInteractor>
             Vector2 dragScreenPosition = TouchScreenInputManager.Instance.dragPosition;
 
             if (isDragging) {
-                GameObject draggingCurrentHitPlane = null;
-                Vector3? draggingCurrentWorldPosition = null;
-                (draggingCurrentHitPlane, draggingCurrentWorldPosition) = AssignmentScript.Instance.RaycastDetectionForARPlane(dragScreenPosition);
-                
-                if (draggingCurrentHitPlane != null &&
-                    draggingCurrentWorldPosition.HasValue &&
-                    draggingStartWorldPosition.HasValue)
+                WallHit dragHit = WallDetection.Raycast(dragScreenPosition, mainCamera);
+
+                if (dragHit.valid && draggingStartWorldPosition.HasValue)
                 {
                     // Offset between the object's anchor and initial touch point
                     Vector3 grabOffset =
                         objectStartPosition - draggingStartWorldPosition.Value;
 
                     // Normal of the wall currently detected
-                    Vector3 planeNormal =
-                        draggingCurrentHitPlane.transform.up.normalized;
+                    Vector3 planeNormal = dragHit.normal;
 
                     // Keep the offset parallel to the new wall
                     Vector3 offsetAlongPlane =
                         Vector3.ProjectOnPlane(grabOffset, planeNormal);
 
                     // Place the object's anchor on the detected wall
-                    Vector3 targetAnchor =
-                        draggingCurrentWorldPosition.Value + offsetAlongPlane;
+                    Vector3 targetAnchor = dragHit.point + offsetAlongPlane;
 
                     AssignmentScript.Instance.GeometricRegistration(
                         currentSelectedObject.gameObject,
                         targetAnchor,
-                        draggingCurrentHitPlane
+                        planeNormal,
+                        dragHit.plane
                     );
                 }
             }
@@ -371,7 +386,13 @@ public class ScreenRayInteractor : Singleton<ScreenRayInteractor>
                 UpdatePlacementPreview();
             } else {
                 if (isPreviewActive) {
-                    SolidifyPlacementPreview();
+                    // Let go over the wall: hang it. Let go back over the UI (preview hidden): cancel,
+                    // but stay armed so the user can try again.
+                    if (previewInstance != null && previewInstance.activeSelf) {
+                        SolidifyPlacementPreview();
+                    } else {
+                        CancelPlacementPreview();
+                    }
                 }
             }
             return;
