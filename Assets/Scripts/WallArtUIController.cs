@@ -1,3 +1,4 @@
+using TMPro;
 using UnityEngine;
 using UnityEngine.UI;
 
@@ -103,7 +104,8 @@ public class WallArtUIController : MonoBehaviour
             artworkNavButton.onClick.RemoveAllListeners();
             artworkNavButton.onClick.AddListener(OnArtworkNavClicked);
 
-            TMPro.TextMeshProUGUI artText = artworkNavButton.GetComponentInChildren<TMPro.TextMeshProUGUI>();
+            // Ensure the Art button displays "Art"
+            TextMeshProUGUI artText = artworkNavButton.GetComponentInChildren<TextMeshProUGUI>();
             if (artText != null)
             {
                 artText.text = "Art";
@@ -355,6 +357,7 @@ public class WallArtUIController : MonoBehaviour
 
     private void UpdateContextualButtons(bool hasSelection)
     {
+        // Size and Delete only make sense with a picture selected
         if (sizeNavButton != null) sizeNavButton.gameObject.SetActive(hasSelection);
         if (trashNavButton != null) trashNavButton.gameObject.SetActive(hasSelection);
         if (rotateNavButton != null) rotateNavButton.SetActive(false);
