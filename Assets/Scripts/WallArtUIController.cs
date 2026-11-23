@@ -250,73 +250,16 @@ public class WallArtUIController : MonoBehaviour
 
     private void EnsureSizePresetsAndOrientationButtons()
     {
-        // Apply smaller, sleek scaling to bottom navigation buttons
-        Vector3 smallerScale = new Vector3(1.5f, 1.5f, 1f);
-        if (artworkNavButton != null) artworkNavButton.transform.localScale = smallerScale;
-        if (frameNavButton != null) frameNavButton.transform.localScale = smallerScale;
-        if (trashNavButton != null) trashNavButton.transform.localScale = smallerScale;
-        if (sizeNavButton != null)
-        {
-            sizeNavButton.transform.localScale = smallerScale;
-            RectTransform srt = sizeNavButton.GetComponent<RectTransform>();
-            if (srt != null && artworkNavButton != null)
-            {
-                RectTransform artRt = artworkNavButton.GetComponent<RectTransform>();
-                if (artRt != null)
-                {
-                    srt.anchoredPosition = new Vector2(srt.anchoredPosition.x, artRt.anchoredPosition.y);
-                }
-            }
-        }
-
         if (sizePresetsPanel == null) return;
-
-        // Scale down size presets panel and expand dimensions for 2-row layout
-        sizePresetsPanel.transform.localScale = smallerScale;
-        RectTransform panelRt = sizePresetsPanel.GetComponent<RectTransform>();
-        if (panelRt != null)
-        {
-            panelRt.sizeDelta = new Vector2(640f, 170f);
-        }
-
-        Vector2 sizeBtnDimensions = new Vector2(90f, 55f);
-        float topRowY = 32f;
-        float bottomRowY = -35f;
-
-        if (sizeA4Button != null)
-        {
-            RectTransform rt = sizeA4Button.GetComponent<RectTransform>();
-            if (rt != null) { rt.anchoredPosition = new Vector2(-100f, topRowY); rt.sizeDelta = sizeBtnDimensions; }
-            TMPro.TextMeshProUGUI tmp = sizeA4Button.GetComponentInChildren<TMPro.TextMeshProUGUI>();
-            if (tmp != null) tmp.fontSize = 22;
-        }
-
-        if (sizeA3Button != null)
-        {
-            RectTransform rt = sizeA3Button.GetComponent<RectTransform>();
-            if (rt != null) { rt.anchoredPosition = new Vector2(0f, topRowY); rt.sizeDelta = sizeBtnDimensions; }
-            TMPro.TextMeshProUGUI tmp = sizeA3Button.GetComponentInChildren<TMPro.TextMeshProUGUI>();
-            if (tmp != null) tmp.fontSize = 22;
-        }
-
-        if (sizeA2Button != null)
-        {
-            RectTransform rt = sizeA2Button.GetComponent<RectTransform>();
-            if (rt != null) { rt.anchoredPosition = new Vector2(100f, topRowY); rt.sizeDelta = sizeBtnDimensions; }
-            TMPro.TextMeshProUGUI tmp = sizeA2Button.GetComponentInChildren<TMPro.TextMeshProUGUI>();
-            if (tmp != null) tmp.fontSize = 22;
-        }
 
         // Create A5 button if null
         if (sizeA5Button == null && sizeA4Button != null)
         {
             GameObject a5Obj = Instantiate(sizeA4Button.gameObject, sizePresetsPanel.transform);
             a5Obj.name = "Button_A5";
-            RectTransform rt = a5Obj.GetComponent<RectTransform>();
-            rt.anchoredPosition = new Vector2(-200f, topRowY);
-            rt.sizeDelta = sizeBtnDimensions;
-            TMPro.TextMeshProUGUI tmp = a5Obj.GetComponentInChildren<TMPro.TextMeshProUGUI>();
-            if (tmp != null) { tmp.text = "A5"; tmp.fontSize = 22; }
+            a5Obj.transform.localScale = Vector3.one;
+            TextMeshProUGUI tmp = a5Obj.GetComponentInChildren<TextMeshProUGUI>(true);
+            if (tmp != null) { tmp.text = "A5"; }
             sizeA5Button = a5Obj.GetComponent<Button>();
         }
 
@@ -325,11 +268,9 @@ public class WallArtUIController : MonoBehaviour
         {
             GameObject a1Obj = Instantiate(sizeA2Button.gameObject, sizePresetsPanel.transform);
             a1Obj.name = "Button_A1";
-            RectTransform rt = a1Obj.GetComponent<RectTransform>();
-            rt.anchoredPosition = new Vector2(200f, topRowY);
-            rt.sizeDelta = sizeBtnDimensions;
-            TMPro.TextMeshProUGUI tmp = a1Obj.GetComponentInChildren<TMPro.TextMeshProUGUI>();
-            if (tmp != null) { tmp.text = "A1"; tmp.fontSize = 22; }
+            a1Obj.transform.localScale = Vector3.one;
+            TextMeshProUGUI tmp = a1Obj.GetComponentInChildren<TextMeshProUGUI>(true);
+            if (tmp != null) { tmp.text = "A1"; }
             sizeA1Button = a1Obj.GetComponent<Button>();
         }
 
@@ -338,11 +279,9 @@ public class WallArtUIController : MonoBehaviour
         {
             GameObject portraitObj = Instantiate(sizeA3Button.gameObject, sizePresetsPanel.transform);
             portraitObj.name = "Button_Portrait";
-            RectTransform rt = portraitObj.GetComponent<RectTransform>();
-            rt.anchoredPosition = new Vector2(-110f, bottomRowY);
-            rt.sizeDelta = new Vector2(170f, 50f);
-            TMPro.TextMeshProUGUI tmp = portraitObj.GetComponentInChildren<TMPro.TextMeshProUGUI>();
-            if (tmp != null) { tmp.text = "Portrait"; tmp.fontSize = 20; }
+            portraitObj.transform.localScale = Vector3.one;
+            TextMeshProUGUI tmp = portraitObj.GetComponentInChildren<TextMeshProUGUI>(true);
+            if (tmp != null) { tmp.text = "Portrait"; }
             portraitButton = portraitObj.GetComponent<Button>();
         }
 
@@ -351,25 +290,20 @@ public class WallArtUIController : MonoBehaviour
         {
             GameObject landscapeObj = Instantiate(sizeA3Button.gameObject, sizePresetsPanel.transform);
             landscapeObj.name = "Button_Landscape";
-            RectTransform rt = landscapeObj.GetComponent<RectTransform>();
-            rt.anchoredPosition = new Vector2(110f, bottomRowY);
-            rt.sizeDelta = new Vector2(170f, 50f);
-            TMPro.TextMeshProUGUI tmp = landscapeObj.GetComponentInChildren<TMPro.TextMeshProUGUI>();
-            if (tmp != null) { tmp.text = "Landscape"; tmp.fontSize = 20; }
+            landscapeObj.transform.localScale = Vector3.one;
+            TextMeshProUGUI tmp = landscapeObj.GetComponentInChildren<TextMeshProUGUI>(true);
+            if (tmp != null) { tmp.text = "Landscape"; }
             landscapeButton = landscapeObj.GetComponent<Button>();
         }
 
         // Create General Scale buttons (Small, Medium, Big) for non-standard aspect ratios
-        Vector2 genBtnDimensions = new Vector2(120f, 55f);
         if (sizeSmallButton == null && sizeA4Button != null)
         {
             GameObject smallObj = Instantiate(sizeA4Button.gameObject, sizePresetsPanel.transform);
             smallObj.name = "Button_Small";
-            RectTransform rt = smallObj.GetComponent<RectTransform>();
-            rt.anchoredPosition = new Vector2(-150f, topRowY);
-            rt.sizeDelta = genBtnDimensions;
-            TMPro.TextMeshProUGUI tmp = smallObj.GetComponentInChildren<TMPro.TextMeshProUGUI>();
-            if (tmp != null) { tmp.text = "Small"; tmp.fontSize = 20; }
+            smallObj.transform.localScale = Vector3.one;
+            TextMeshProUGUI tmp = smallObj.GetComponentInChildren<TextMeshProUGUI>(true);
+            if (tmp != null) { tmp.text = "Small"; }
             sizeSmallButton = smallObj.GetComponent<Button>();
             sizeSmallButton.onClick.RemoveAllListeners();
             sizeSmallButton.onClick.AddListener(() => OnGeneralSizePresetClicked(GeneralSizePreset.Small));
@@ -379,11 +313,9 @@ public class WallArtUIController : MonoBehaviour
         {
             GameObject medObj = Instantiate(sizeA3Button.gameObject, sizePresetsPanel.transform);
             medObj.name = "Button_Medium";
-            RectTransform rt = medObj.GetComponent<RectTransform>();
-            rt.anchoredPosition = new Vector2(0f, topRowY);
-            rt.sizeDelta = genBtnDimensions;
-            TMPro.TextMeshProUGUI tmp = medObj.GetComponentInChildren<TMPro.TextMeshProUGUI>();
-            if (tmp != null) { tmp.text = "Medium"; tmp.fontSize = 20; }
+            medObj.transform.localScale = Vector3.one;
+            TextMeshProUGUI tmp = medObj.GetComponentInChildren<TextMeshProUGUI>(true);
+            if (tmp != null) { tmp.text = "Medium"; }
             sizeMediumButton = medObj.GetComponent<Button>();
             sizeMediumButton.onClick.RemoveAllListeners();
             sizeMediumButton.onClick.AddListener(() => OnGeneralSizePresetClicked(GeneralSizePreset.Medium));
@@ -393,11 +325,9 @@ public class WallArtUIController : MonoBehaviour
         {
             GameObject bigObj = Instantiate(sizeA2Button.gameObject, sizePresetsPanel.transform);
             bigObj.name = "Button_Big";
-            RectTransform rt = bigObj.GetComponent<RectTransform>();
-            rt.anchoredPosition = new Vector2(150f, topRowY);
-            rt.sizeDelta = genBtnDimensions;
-            TMPro.TextMeshProUGUI tmp = bigObj.GetComponentInChildren<TMPro.TextMeshProUGUI>();
-            if (tmp != null) { tmp.text = "Big"; tmp.fontSize = 20; }
+            bigObj.transform.localScale = Vector3.one;
+            TextMeshProUGUI tmp = bigObj.GetComponentInChildren<TextMeshProUGUI>(true);
+            if (tmp != null) { tmp.text = "Big"; }
             sizeBigButton = bigObj.GetComponent<Button>();
             sizeBigButton.onClick.RemoveAllListeners();
             sizeBigButton.onClick.AddListener(() => OnGeneralSizePresetClicked(GeneralSizePreset.Big));
@@ -760,6 +690,10 @@ public class WallArtUIController : MonoBehaviour
         if (sizeMediumButton != null) sizeMediumButton.gameObject.SetActive(!isStandardA);
         if (sizeBigButton != null) sizeBigButton.gameObject.SetActive(!isStandardA);
 
+        // Orientation buttons are always visible in Row 2
+        if (portraitButton != null) portraitButton.gameObject.SetActive(true);
+        if (landscapeButton != null) landscapeButton.gameObject.SetActive(true);
+
         if (isStandardA)
         {
             ArtworkSizePreset preset = ArtworkSizeManager.Instance != null ? ArtworkSizeManager.Instance.GetCurrentPreset() : ArtworkSizePreset.A3;
@@ -773,6 +707,8 @@ public class WallArtUIController : MonoBehaviour
 
         ArtworkOrientation orient = ArtworkSizeManager.Instance != null ? ArtworkSizeManager.Instance.GetCurrentOrientation() : ArtworkOrientation.Portrait;
         UpdateOrientationButtonsHighlight(orient);
+
+        UpdateSizeLabels();
     }
 
     public void UpdateGeneralSizeButtonsHighlight(GeneralSizePreset activePreset)
@@ -830,8 +766,7 @@ public class WallArtUIController : MonoBehaviour
     }
 
     /// <summary>
-    /// Shows what each size means for the selected picture, in centimetres. The app is about
-    /// judging real sizes on a real wall, so the numbers matter more than the paper names.
+    /// Shows what each size means for the selected picture, in centimetres.
     /// </summary>
     private void UpdateSizeLabels()
     {
@@ -839,12 +774,28 @@ public class WallArtUIController : MonoBehaviour
         ArtworkProperties properties = selected != null ? selected.GetComponent<ArtworkProperties>() : null;
         Vector2 baseSize = properties != null ? properties.baseDimensionsMeters : new Vector2(0.297f, 0.420f);
 
-        // Paper names only apply to pictures with paper proportions; photos get plain words
-        bool paperProportions = Mathf.Abs(baseSize.x - 0.297f) < 0.005f && Mathf.Abs(baseSize.y - 0.420f) < 0.005f;
+        ArtworkOrientation currentOrient = ArtworkSizeManager.Instance != null
+            ? ArtworkSizeManager.Instance.GetCurrentOrientation()
+            : ArtworkOrientation.Portrait;
 
-        SetSizeLabel(sizeA4Button, paperProportions ? "A4" : "Small", baseSize * ArtworkSizeManager.SCALE_A4);
-        SetSizeLabel(sizeA3Button, paperProportions ? "A3" : "Medium", baseSize * ArtworkSizeManager.SCALE_A3);
-        SetSizeLabel(sizeA2Button, paperProportions ? "A2" : "Large", baseSize * ArtworkSizeManager.SCALE_A2);
+        bool isLandscape = (currentOrient == ArtworkOrientation.Landscape);
+        Vector2 displayMeters = isLandscape ? new Vector2(baseSize.y, baseSize.x) : baseSize;
+
+        // A-series sizes
+        SetSizeLabel(sizeA5Button, "A5", displayMeters * ArtworkSizeManager.SCALE_A5);
+        SetSizeLabel(sizeA4Button, "A4", displayMeters * ArtworkSizeManager.SCALE_A4);
+        SetSizeLabel(sizeA3Button, "A3", displayMeters * ArtworkSizeManager.SCALE_A3);
+        SetSizeLabel(sizeA2Button, "A2", displayMeters * ArtworkSizeManager.SCALE_A2);
+        SetSizeLabel(sizeA1Button, "A1", displayMeters * ArtworkSizeManager.SCALE_A1);
+
+        // General sizes
+        SetSizeLabel(sizeSmallButton, "Small", displayMeters * ArtworkSizeManager.SCALE_SMALL);
+        SetSizeLabel(sizeMediumButton, "Medium", displayMeters * ArtworkSizeManager.SCALE_MEDIUM);
+        SetSizeLabel(sizeBigButton, "Big", displayMeters * ArtworkSizeManager.SCALE_BIG);
+
+        // Orientation labels
+        SetOrientationLabel(portraitButton, "Portrait");
+        SetOrientationLabel(landscapeButton, "Landscape");
     }
 
     private static void SetSizeLabel(Button button, string title, Vector2 meters)
@@ -855,7 +806,15 @@ public class WallArtUIController : MonoBehaviour
         int widthCm = Mathf.RoundToInt(meters.x * 100f);
         int heightCm = Mathf.RoundToInt(meters.y * 100f);
         label.richText = true;
-        label.text = title + "\n<size=58%>" + widthCm + " x " + heightCm + " cm</size>";
+        label.text = $"{title}\n<size=58%><color=#B0B6C0>{widthCm} x {heightCm} cm</color></size>";
+    }
+
+    private static void SetOrientationLabel(Button button, string title)
+    {
+        if (button == null) return;
+        TextMeshProUGUI label = button.GetComponentInChildren<TextMeshProUGUI>(true);
+        if (label == null) return;
+        label.text = title;
     }
 
     // ------------------------------------------------------------------ Delete
@@ -1037,7 +996,7 @@ public class WallArtUIController : MonoBehaviour
         }
     }
 
-    /// <summary>Makes the scene's size panel fill the drawer with three large, readable buttons.</summary>
+    /// <summary>Makes the scene's size panel fill the drawer with large, readable buttons (sizes + orientation).</summary>
     private void RestyleSizePanel()
     {
         if (sizePresetsPanel == null) return;
@@ -1045,44 +1004,87 @@ public class WallArtUIController : MonoBehaviour
         RectTransform panel = sizePresetsPanel.GetComponent<RectTransform>();
         if (panel == null) return;
         panel.localScale = Vector3.one; // sizes below are real canvas units
-        WallArtUI.Place(panel, new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f), Vector2.zero, new Vector2(1020f, 340f));
+        WallArtUI.Place(panel, new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f), Vector2.zero, new Vector2(1040f, 340f));
 
         // The drawer backdrop is the background now
         Image background = sizePresetsPanel.GetComponent<Image>();
         if (background != null) background.enabled = false;
 
-        TextMeshProUGUI caption = WallArtUI.CreateLabel("Caption", panel, "Size on your wall", 28f, WallArtUI.TextDim);
-        WallArtUI.Place(caption.rectTransform, new Vector2(0.5f, 1f), new Vector2(0.5f, 1f), new Vector2(0f, -16f), new Vector2(900f, 40f));
+        TextMeshProUGUI caption = WallArtUI.CreateLabel("Caption", panel, "Size on your wall", 26f, WallArtUI.TextDim);
+        WallArtUI.Place(caption.rectTransform, new Vector2(0.5f, 1f), new Vector2(0.5f, 1f), new Vector2(0f, -14f), new Vector2(900f, 32f));
 
-        Button[] buttons = { sizeA4Button, sizeA3Button, sizeA2Button };
-        for (int i = 0; i < buttons.Length; i++)
+        // Row 1: A-series size buttons (A5, A4, A3, A2, A1) - 5 big buttons
+        Button[] aButtons = { sizeA5Button, sizeA4Button, sizeA3Button, sizeA2Button, sizeA1Button };
+        float aWidth = 192f;
+        float aHeight = 135f;
+        float aSpacing = 12f;
+        float aRowY = 32f;
+
+        for (int i = 0; i < aButtons.Length; i++)
         {
-            Button button = buttons[i];
-            if (button == null) continue;
+            Button btn = aButtons[i];
+            if (btn == null) continue;
 
-            RectTransform rect = (RectTransform)button.transform;
-            rect.localScale = Vector3.one;
-            WallArtUI.Place(rect, new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f),
-                new Vector2((i - 1) * 332f, -24f), new Vector2(316f, 196f));
+            float x = (i - 2) * (aWidth + aSpacing);
+            StyleBigButton(btn, new Vector2(x, aRowY), new Vector2(aWidth, aHeight), 24, 38f);
+        }
 
-            Image image = button.GetComponent<Image>();
-            if (image != null)
-            {
-                WallArtUI.SetRounded(image, 30);
-                image.preserveAspect = false;
-            }
+        // Row 1 (Alternative): General scale buttons (Small, Medium, Big) - 3 big buttons
+        Button[] genButtons = { sizeSmallButton, sizeMediumButton, sizeBigButton };
+        float genWidth = 320f;
+        float genHeight = 135f;
+        float genSpacing = 20f;
 
-            TextMeshProUGUI label = button.GetComponentInChildren<TextMeshProUGUI>(true);
-            if (label != null)
-            {
-                label.rectTransform.localScale = Vector3.one;
-                WallArtUI.Stretch(label.rectTransform);
-                label.fontSize = 50f;
-                label.enableAutoSizing = false;
-                label.alignment = TextAlignmentOptions.Center;
-                label.lineSpacing = -10f;
-                label.raycastTarget = false;
-            }
+        for (int i = 0; i < genButtons.Length; i++)
+        {
+            Button btn = genButtons[i];
+            if (btn == null) continue;
+
+            float x = (i - 1) * (genWidth + genSpacing);
+            StyleBigButton(btn, new Vector2(x, aRowY), new Vector2(genWidth, genHeight), 24, 40f);
+        }
+
+        // Row 2: Orientation buttons (Portrait, Landscape) - 2 big buttons
+        float orientWidth = 330f;
+        float orientHeight = 88f;
+        float orientRowY = -92f;
+
+        if (portraitButton != null)
+        {
+            StyleBigButton(portraitButton, new Vector2(-177f, orientRowY), new Vector2(orientWidth, orientHeight), 22, 32f);
+        }
+
+        if (landscapeButton != null)
+        {
+            StyleBigButton(landscapeButton, new Vector2(177f, orientRowY), new Vector2(orientWidth, orientHeight), 22, 32f);
+        }
+    }
+
+    private static void StyleBigButton(Button button, Vector2 pos, Vector2 size, int cornerRadius, float fontSize)
+    {
+        if (button == null) return;
+
+        RectTransform rect = (RectTransform)button.transform;
+        rect.localScale = Vector3.one;
+        WallArtUI.Place(rect, new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f), pos, size);
+
+        Image image = button.GetComponent<Image>();
+        if (image != null)
+        {
+            WallArtUI.SetRounded(image, cornerRadius);
+            image.preserveAspect = false;
+        }
+
+        TextMeshProUGUI label = button.GetComponentInChildren<TextMeshProUGUI>(true);
+        if (label != null)
+        {
+            label.rectTransform.localScale = Vector3.one;
+            WallArtUI.Stretch(label.rectTransform);
+            label.fontSize = fontSize;
+            label.enableAutoSizing = false;
+            label.alignment = TextAlignmentOptions.Center;
+            label.lineSpacing = -8f;
+            label.raycastTarget = false;
         }
     }
 

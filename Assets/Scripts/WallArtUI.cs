@@ -16,7 +16,7 @@ public static class WallArtUI
     public static readonly Color Sheet = new Color(0.07f, 0.08f, 0.10f, 1f);
     public static readonly Color Bar = new Color(0.07f, 0.08f, 0.10f, 0.96f);
     public static readonly Color Control = new Color(0.18f, 0.20f, 0.25f, 0.95f);
-    public static readonly Color Accent = new Color(0.16f, 0.65f, 0.42f, 1f);
+    public static readonly Color Accent = new Color(0.20f, 0.50f, 0.85f, 1f);
     public static readonly Color Danger = new Color(1f, 0.45f, 0.42f, 1f);
     public static readonly Color Text = Color.white;
     public static readonly Color TextDim = new Color(0.78f, 0.80f, 0.84f, 1f);
